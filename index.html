@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dani · App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── Reset ── */
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;overflow:hidden}
+button{font-family:inherit;cursor:pointer;border:0;background:none;color:inherit;padding:0}
+input{font-family:inherit}
+img,svg{display:block;max-width:100%}
+
+/* ── Tokens ── */
+:root{
+–c-bg:#0a0a0a;–c-bg-2:#0f0f0f;–c-surface:#141414;–c-surface-2:#1c1c1c;–c-surface-3:#262626;
+–c-text:#faf8f3;–c-text-muted:#8a8780;–c-text-subtle:#56544f;
+–c-border:rgba(250,248,243,0.08);–c-border-strong:rgba(250,248,243,0.16);
+–c-accent:#ff5a3a;–c-accent-2:#e84a2c;–c-accent-soft:rgba(255,90,58,0.14);–c-accent-on:#0a0a0a;
+–c-warm:#ffd166;–c-warm-soft:rgba(255,209,102,0.14);
+–c-z1:#5a8fff;–c-z2:#4ade80;–c-z3:#ffd166;–c-z4:#ff8c3a;–c-z5:#ef4a4a;
+–c-good:#4ade80;–c-bad:#ef4a4a;–c-warn:#ffd166;
+–f-d:‘Bricolage Grotesque’,ui-sans-serif,sans-serif;
+–f-b:‘Geist’,ui-sans-serif,sans-serif;
+–f-m:‘Geist Mono’,ui-monospace,monospace;
+–r-sm:10px;–r-md:14px;–r-lg:20px;–r-xl:28px;–r-pill:999px;
+}
+[data-theme=“light”]{
+–c-bg:#faf7f0;–c-bg-2:#f4efe2;–c-surface:#fff;–c-surface-2:#f4efe3;–c-surface-3:#ebe5d4;
+–c-text:#0a0a0a;–c-text-muted:#6b6864;–c-text-subtle:#a09c92;
+–c-border:rgba(10,10,10,0.08);–c-border-strong:rgba(10,10,10,0.18);
+–c-accent-on:#fff;
+}
+
+/* ── Shell ── */
+body{
+font-family:var(–f-b);font-size:15px;color:var(–c-text);
+-webkit-font-smoothing:antialiased;
+background:
+radial-gradient(1200px 600px at 80% -10%,color-mix(in oklab,var(–c-accent) 12%,transparent),transparent 60%),
+radial-gradient(900px 700px at -10% 110%,color-mix(in oklab,var(–c-warm) 10%,transparent),transparent 60%),
+var(–c-bg);
+display:grid;place-items:center;
+}
+.frame{
+width:100%;max-width:400px;height:100vh;max-height:820px;
+background:var(–c-bg-2);border-radius:36px;
+box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px var(–c-border);
+overflow:hidden;display:flex;flex-direction:column;position:relative;
+}
+@media(max-width:440px){
+body{background:var(–c-bg)}
+.frame{border-radius:0;max-height:none;box-shadow:none}
+}
+
+/* ── Status bar ── */
+.status{
+display:flex;justify-content:space-between;align-items:center;
+padding:14px 26px 6px;font-family:var(–f-b);font-size:14px;font-weight:600;
+flex-shrink:0;
+}
+.status .icons{display:flex;gap:6px;align-items:center;opacity:.85}
+
+/* ── Screens ── */
+.screen{flex:1;display:flex;flex-direction:column;min-height:0;animation:fadein .25s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.scroll{flex:1;overflow-y:auto;scrollbar-width:none}
+.scroll::-webkit-scrollbar{display:none}
+.pad{padding:4px 20px 110px}
+
+/* ── Typography ── */
+h1{font-family:var(–f-d);font-weight:600;font-size:28px;letter-spacing:-.025em;margin:0;line-height:1.1}
+h2{font-family:var(–f-d);font-weight:600;font-size:18px;letter-spacing:-.015em;margin:0}
+.eyebrow{font-family:var(–f-m);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(–c-text-muted);font-weight:500}
+.num{font-family:var(–f-d);font-weight:500;letter-spacing:-.03em;font-feature-settings:‘tnum’}
+.mono{font-family:var(–f-m);font-feature-settings:‘tnum’}
+.muted{color:var(–c-text-muted)}
+.subtle{color:var(–c-text-subtle)}
+.title-md{font-family:var(–f-d);font-weight:600;font-size:20px;letter-spacing:-.02em;line-height:1.15}
+.title-sm{font-family:var(–f-d);font-weight:600;font-size:15.5px;letter-spacing:-.015em;line-height:1.2}
+
+/* ── Header ── */
+.hdr{padding:10px 20px 14px;display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-shrink:0}
+.hdr-meta{font-family:var(–f-m);font-size:11px;letter-spacing:.08em;color:var(–c-text-muted);margin-bottom:6px;text-transform:uppercase}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(–c-surface-2);border:1px solid var(–c-border);display:grid;place-items:center;font-family:var(–f-d);font-weight:600;font-size:14px;flex-shrink:0;cursor:pointer}
+
+/* ── Cards ── */
+.card{background:var(–c-surface);border:1px solid var(–c-border);border-radius:var(–r-lg);padding:16px}
+.card+.card{margin-top:10px}
+.card.tinted{background:var(–c-surface-2)}
+.card-link{font-family:var(–f-b);font-weight:500;font-size:12px;color:var(–c-accent);display:inline-flex;align-items:center;gap:4px;background:none;border:0;cursor:pointer}
+
+/* ── Section ── */
+.sec{margin-top:22px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:baseline}
+
+/* ── Layout utils ── */
+.row{display:flex;align-items:center;gap:10px}
+.col{display:flex;flex-direction:column}
+.grow{flex:1}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.divider{height:1px;background:var(–c-border);margin:14px 0}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:44px;padding:0 20px;font-family:var(–f-b);font-size:14px;font-weight:600;border-radius:var(–r-pill);transition:transform .06s,opacity .15s}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(–c-accent);color:var(–c-accent-on)}
+.btn-ghost{background:var(–c-surface-2);color:var(–c-text);border:1px solid var(–c-border)}
+.btn-sm{height:34px;padding:0 13px;font-size:12.5px}
+.btn-block{width:100%}
+
+/* ── Pills ── */
+.pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(–r-pill);background:var(–c-surface-2);border:1px solid var(–c-border);font-family:var(–f-m);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(–c-text-muted)}
+.pill.solid{background:var(–c-accent);color:var(–c-accent-on);border-color:transparent}
+.pill.good{background:rgba(74,222,128,.12);color:var(–c-good);border-color:transparent}
+.pill.warm{background:var(–c-warm-soft);color:var(–c-warm);border-color:transparent}
+.dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+
+/* ── Zone bar ── */
+.zonebar{display:flex;gap:3px;height:7px;border-radius:var(–r-pill);overflow:hidden}
+.zonebar>div{flex:1;background:var(–c-surface-2)}
+
+/* ── Zone spectrum ── */
+.zspec{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.zcell{display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 4px 8px;border-radius:var(–r-md);background:var(–c-surface-2);border:1px solid transparent}
+.zcell.on{border-color:var(–c-border-strong);background:var(–c-surface-3)}
+.zcell .sw{width:12px;height:12px;border-radius:3px}
+.zcell .zl,.zcell .zp{font-family:var(–f-m);font-size:10px;color:var(–c-text-muted)}
+.zcell.on .zl,.zcell.on .zp{color:var(–c-text)}
+
+/* ── Macro bar ── */
+.macrobar{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(–c-surface-2)}
+
+/* ── Image placeholder ── */
+.img-ph{background:repeating-linear-gradient(135deg,var(–c-surface-2),var(–c-surface-2) 8px,var(–c-surface-3) 8px,var(–c-surface-3) 16px);display:flex;align-items:center;justify-content:center;font-family:var(–f-m);font-size:9.5px;letter-spacing:.06em;color:var(–c-text-subtle);text-transform:uppercase;border-radius:var(–r-md)}
+
+/* ── Input ── */
+.input{width:100%;background:var(–c-surface-2);border:1px solid var(–c-border);border-radius:var(–r-pill);padding:11px 18px;color:var(–c-text);font-size:14px;outline:none;transition:border-color .18s}
+.input:focus{border-color:var(–c-accent)}
+
+/* ── Chips ── */
+.chip{display:inline-flex;align-items:center;white-space:nowrap;padding:7px 13px;font-size:13px;font-weight:500;border-radius:var(–r-pill);background:var(–c-surface);border:1px solid var(–c-border);color:var(–c-text);cursor:pointer;transition:border-color .15s,color .15s;flex-shrink:0}
+.chip:hover{border-color:var(–c-accent);color:var(–c-accent)}
+
+/* ── Chat bubbles ── */
+.bubble-wrap{display:flex;gap:8px;margin-bottom:12px}
+.bubble-wrap.user{flex-direction:row-reverse}
+.ai-dot{width:28px;height:28px;border-radius:50%;background:var(–c-accent-soft);border:1px solid var(–c-border);display:grid;place-items:center;flex-shrink:0;align-self:flex-end}
+.bubble{max-width:80%;padding:10px 14px;border-radius:16px;font-size:13.5px;line-height:1.5}
+.bubble.ai{background:var(–c-surface);border:1px solid var(–c-border);border-radius:16px 16px 16px 4px}
+.bubble.user{background:var(–c-accent);color:var(–c-accent-on);border-radius:16px 16px 4px 16px}
+
+/* ── Bottom nav ── */
+.nav{
+position:absolute;left:10px;right:10px;bottom:10px;
+background:color-mix(in oklab,var(–c-surface) 92%,transparent);
+backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+border:1px solid var(–c-border);border-radius:var(–r-pill);
+padding:5px;display:flex;justify-content:space-between;z-index:5;
+box-shadow:0 12px 32px rgba(0,0,0,.3);
+}
+.nav-item{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px 6px;border-radius:var(–r-pill);color:var(–c-text-muted);transition:background .18s,color .18s;font-size:11.5px;font-weight:500}
+.nav-item.active{background:var(–c-accent);color:var(–c-accent-on)}
+.nav-item .lbl{display:none}
+.nav-item.active .lbl{display:inline}
+
+/* ── Animations ── */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-3px);opacity:1}}
+@keyframes sheetup{from{transform:translateY(100%)}to{transform:none}}
+
+/* ── Sheet ── */
+.sheet-bd{position:absolute;inset:0;background:rgba(0,0,0,.55);z-index:20;backdrop-filter:blur(3px)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(–c-bg-2);border-radius:22px 22px 0 0;padding:16px 20px 32px;z-index:21;animation:sheetup .28s cubic-bezier(.2,.8,.2,1)}
+.handle{width:32px;height:4px;border-radius:2px;background:var(–c-border-strong);margin:0 auto 14px}
+</style>
+
+</head>
+<body>
+<div class="frame" id="app">
+  <!-- Status bar -->
+  <div class="status">
+    <span id="clock">9:41</span>
+    <div class="icons">
+      <svg width="16" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="3" width="3" height="8" rx="1"/><rect x="4.5" y="2" width="3" height="9" rx="1"/><rect x="9" y="0" width="3" height="11" rx="1"/><rect x="13.5" y="0" width="2.5" height="11" rx="1" opacity=".35"/></svg>
+      <svg width="14" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg>
+      <svg width="23" height="11" viewBox="0 0 25 12" fill="currentColor"><rect x="0" y=".5" width="22" height="10.5" rx="2.8" stroke="currentColor" stroke-width="1.2" fill="none"/><rect x="1.8" y="2.2" width="18.4" height="7.1" rx="1.5"/><rect x="22.5" y="4" width="1.5" height="3.5" rx=".5"/></svg>
+    </div>
+  </div>
+
+  <!-- Screen container -->
+
+  <div id="screen" class="screen"></div>
+
+  <!-- Bottom nav -->
+
+  <nav class="nav">
+    <button class="nav-item active" id="n-home" onclick="go('home')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a2 2 0 0 1-2 2h-4v-7h-6v7H5a2 2 0 0 1-2-2z"/></svg>
+      <span class="lbl">Hoy</span>
+    </button>
+    <button class="nav-item" id="n-plan" onclick="go('plan')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg>
+      <span class="lbl">Plan</span>
+    </button>
+    <button class="nav-item" id="n-nutricion" onclick="go('nutricion')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v9a3 3 0 0 0 3 3v6"/><path d="M9 3v6M13 3v6"/><path d="M17 3c2 0 3 2 3 6s-1 6-3 6v6"/></svg>
+      <span class="lbl">Comida</span>
+    </button>
+    <button class="nav-item" id="n-progreso" onclick="go('progreso')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8M9 21V4M15 21v-9M21 21v-6"/></svg>
+      <span class="lbl">Progreso</span>
+    </button>
+    <button class="nav-item" id="n-coach" onclick="go('coach')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 21l1.8-5.5A8 8 0 1 1 21 12z"/></svg>
+      <span class="lbl">Coach</span>
+    </button>
+  </nav>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────
+let S = {
+  screen: 'home',
+  checkin: false,
+  logPhoto: false,
+  planDay: 5, // SAB index
+  progresoTab: 'cuerpo',
+  chatMsgs: [
+    {from:'ai', text:'Buenas Dani. HRV 62ms y Recursos 94% — estás en plena forma. Doble sesión hoy: Z2 de 90 min + tren superior. ¿Todo listo?', t:'08:42'},
+  ],
+  chatDraft: '',
+  chatThinking: false,
+  sheet: null, // 'summary'
+};
+
+// ── Icons ──────────────────────────────────────────────────
+const ICONS = {
+  bike:`<circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6h3l3 11.5M5.5 17.5l4-9h7l2 9"/><circle cx="12" cy="6" r="1" fill="currentColor"/>`,
+  dumbbell:`<path d="M2 12h2M20 12h2M5 8v8M19 8v8M8 6v12M16 6v12M8 12h8"/>`,
+  flame:`<path d="M12 2s4 4 4 8a4 4 0 0 1-8 0c0-2 1-3 1-3s-3 2-3 6a6 6 0 0 0 12 0c0-7-6-11-6-11z"/>`,
+  sparkle:`<path d="M12 3v5M12 16v5M3 12h5M16 12h5M5.5 5.5l3.5 3.5M15 15l3.5 3.5M18.5 5.5L15 9M9 15l-3.5 3.5"/>`,
+  check:`<path d="M5 12l5 5L20 7"/>`,
+  chevron:`<path d="M9 6l6 6-6 6"/>`,
+  send:`<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>`,
+  camera:`<path d="M3 8a2 2 0 0 1 2-2h2.5l1.5-2h6l1.5 2H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="4"/>`,
+  back:`<path d="M19 12H5M11 18l-6-6 6-6"/>`,
+  settings:`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1-.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>`,
+  sun:`<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>`,
+  moon:`<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>`,
+  activity:`<path d="M3 12h4l3-9 4 18 3-9h4"/>`,
+};
+const ico = (name, size=18) =>
+  `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||''}</svg>`;
+
+// ── Components ─────────────────────────────────────────────
+const ring = (val, size, stroke, color, inner) => {
+  const r=(size-stroke)/2, c=2*Math.PI*r, off=c*(1-Math.min(100,Math.max(0,val))/100);
+  return `<div style="position:relative;width:${size}px;height:${size}px;flex-shrink:0">
+    <svg width="${size}" height="${size}" style="transform:rotate(-90deg)">
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" stroke="var(--c-surface-2)" stroke-width="${stroke}" fill="none"/>
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" stroke="${color}" stroke-width="${stroke}" fill="none" stroke-dasharray="${c}" stroke-dashoffset="${off}" stroke-linecap="round"/>
+    </svg>
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">${inner}</div>
+  </div>`;
+};
+
+const macrobar = (p,c,f) => {
+  const t=p+c+f;
+  return `<div class="macrobar">
+    <div style="width:${(p/t*100).toFixed(1)}%;background:var(--c-z2)"></div>
+    <div style="width:${(c/t*100).toFixed(1)}%;background:var(--c-z1)"></div>
+    <div style="width:${(f/t*100).toFixed(1)}%;background:var(--c-warm)"></div>
+  </div>`;
+};
+
+const macroChips = (p,c,f) => [
+  {l:'P',v:p,col:'var(--c-z2)'},{l:'C',v:c,col:'var(--c-z1)'},{l:'G',v:f,col:'var(--c-warm)'}
+].map(m=>`<div><div class="row" style="gap:4px"><span style="width:7px;height:7px;border-radius:2px;background:${m.col}"></span><span class="mono muted" style="font-size:10px">${m.l}</span></div><div class="num" style="font-size:17px;margin-top:2px">${m.v}<span class="mono muted" style="font-size:10px;margin-left:1px">g</span></div></div>`).join('');
+
+const zonebar = (active) => {
+  const cols=['var(--c-z1)','var(--c-z2)','var(--c-z3)','var(--c-z4)','var(--c-z5)'];
+  return `<div class="zonebar">${[1,2,3,4,5].map(z=>`<div style="${z===active?`background:${cols[z-1]}`:''}"></div>`).join('')}</div>`;
+};
+
+const zonespec = (dist, active) => {
+  const labels=['Z1','Z2','Z3','Z4','Z5'];
+  const cols=['var(--c-z1)','var(--c-z2)','var(--c-z3)','var(--c-z4)','var(--c-z5)'];
+  return `<div class="zspec">${labels.map((l,i)=>`
+    <div class="zcell ${i===active-1?'on':''}">
+      <div class="sw" style="background:${cols[i]}"></div>
+      <div class="zl">${l}</div>
+      ${dist?`<div class="zp">${dist[i]}%</div>`:''}
+    </div>`).join('')}</div>`;
+};
+
+const sparkline = (data, color) => {
+  const w=260, h=44, mn=Math.min(...data), mx=Math.max(...data), rng=mx-mn||1;
+  const pts=data.map((v,i)=>`${(i/(data.length-1))*w},${h-(((v-mn)/rng)*h*.75+h*.12)}`).join(' ');
+  return `<svg width="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+};
+
+// ── Screens ────────────────────────────────────────────────
+const SCREENS = {
+
+home: () => `
+  <div class="hdr">
+    <div>
+      <div class="hdr-meta">Sáb · 10 May</div>
+      <h1>Hola, <span style="color:var(--c-accent)">Dani</span>.</h1>
+      <div class="muted" style="margin-top:5px;font-size:13px;line-height:1.4">Doble sesión hoy. Recuperación excelente.</div>
+    </div>
+    <button class="avatar" onclick="toggleTheme()">D</button>
+  </div>
+  <div class="scroll"><div class="pad">
+
+    <button onclick="go('plan')" style="width:100%;text-align:left">
+      <div class="card" style="padding:20px;position:relative;overflow:hidden">
+        <div style="position:absolute;top:-40px;right:-40px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(255,90,58,.22),transparent 70%)"></div>
+        <div class="row" style="justify-content:space-between;position:relative">
+          <span class="pill solid"><span class="dot"></span>Hoy</span>
+          ${ico('bike',24)}
+        </div>
+        <div class="title-md" style="margin-top:16px">Rodaje aeróbico Z2</div>
+        <div class="mono muted" style="font-size:11px;margin-top:5px">Bici · 90 min · enviado a Garmin Connect</div>
+        <div style="margin-top:13px">${zonebar(2)}</div>
+        <div class="row" style="justify-content:space-between;margin-top:7px">
+          <div class="mono" style="font-size:10px;color:var(--c-text-subtle);letter-spacing:.06em">FC OBJETIVO</div>
+          <div class="num" style="font-size:14px">130<span class="muted">–</span>145<span class="mono muted" style="font-size:10px;margin-left:2px">BPM</span></div>
+        </div>
+      </div>
+    </button>
+
+    <div class="sec"><h2>Estado físico</h2><span class="mono muted" style="font-size:10px;letter-spacing:.08em;text-transform:uppercase">Suunto</span></div>
+    <div class="card">
+      <div class="row" style="align-items:flex-start;gap:13px">
+        ${ring(94,78,7,'var(--c-good)',`<span class="num" style="font-size:22px;color:var(--c-good)">94<span style="font-size:12px;color:var(--c-text-muted)">%</span></span>`)}
+        <div class="grow" style="padding-top:3px">
+          <div class="title-sm">En plena forma</div>
+          <div class="muted" style="font-size:12.5px;margin-top:3px;line-height:1.45">Recursos altos. Listo para el doble entreno.</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="g2">
+        <div><div class="eyebrow">HRV</div><div class="num" style="font-size:22px;margin-top:4px">62<span class="mono muted" style="font-size:10px;margin-left:2px">ms</span></div><div class="mono" style="font-size:10px;color:var(--c-good);margin-top:2px">↑ +4 vs media</div></div>
+        <div><div class="eyebrow">Sueño</div><div class="num" style="font-size:22px;margin-top:4px">7<span class="mono muted" style="font-size:10px">h</span> 20<span class="mono muted" style="font-size:10px">m</span></div><div class="mono muted" style="font-size:10px;margin-top:2px">profundo 1h 40m</div></div>
+      </div>
+    </div>
+
+    ${S.checkin ? `
+    <div class="card" style="margin-top:10px;background:var(--c-accent-soft);border-color:transparent">
+      <div class="row" style="gap:8px">${ico('check',13)}<div class="title-sm">Plan reajustado para esta semana.</div></div>
+    </div>` : `
+    <div class="card" style="margin-top:10px;border-color:var(--c-border-strong)">
+      <div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="eyebrow">Check-in · Ayer</span>${ico('sparkle',13)}</div>
+      <div class="title-sm" style="margin-bottom:12px">¿Completaste la sesión de fuerza?</div>
+      <div class="row" style="gap:6px">
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="S.checkin=true;render()">Sí, completa</button>
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="S.checkin=true;render()">Parcial</button>
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="S.checkin=true;render()">No</button>
+      </div>
+    </div>`}
+
+    <div class="sec"><h2>Esta semana</h2><button class="card-link" onclick="go('plan')">Ver plan ${ico('chevron',13)}</button></div>
+    <div class="card">
+      <div class="row" style="align-items:center;gap:12px">
+        ${ring(75,56,5,'var(--c-accent)',`<span class="mono" style="font-size:10.5px;color:var(--c-text-muted)">75%</span>`)}
+        <div class="grow"><div class="title-sm">Bici</div><div class="muted" style="font-size:12px">3 de 4 sesiones · 312 / 400 TSS</div></div>
+        ${ico('bike',17)}
+      </div>
+      <div class="divider"></div>
+      <div class="row" style="align-items:center;gap:12px">
+        ${ring(50,56,5,'var(--c-warm)',`<span class="mono" style="font-size:10.5px;color:var(--c-text-muted)">50%</span>`)}
+        <div class="grow"><div class="title-sm">Fuerza</div><div class="muted" style="font-size:12px">1 de 2 · pendiente: tren superior</div></div>
+        ${ico('dumbbell',17)}
+      </div>
+    </div>
+
+    <div class="sec"><h2>Última sesión</h2><span class="pill good">${ico('check',11)}Strava</span></div>
+    <button onclick="S.sheet='summary';render()" style="width:100%;text-align:left">
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <div>
+            <div class="eyebrow">VIE 9 · 18:42</div>
+            <div class="title-sm" style="margin-top:4px">Garabitas · vuelta larga</div>
+            <div class="mono muted" style="font-size:11px;margin-top:3px">1h 32m · 42.8 km · TSS 84</div>
+          </div>
+          <div class="row" style="gap:5px;align-items:center">
+            <div class="num" style="font-size:21px;color:var(--c-z2)">71<span class="mono muted" style="font-size:9px;margin-left:1px">%</span></div>
+            ${ico('chevron',14)}
+          </div>
+        </div>
+        <div class="mono subtle" style="font-size:9.5px;margin-top:7px;letter-spacing:.04em">TIEMPO EN Z2 · OBJETIVO &gt;70%</div>
+      </div>
+    </button>
+
+    <div class="sec"><h2>Hoy en la cocina</h2><button class="card-link" onclick="go('nutricion')">Ver todo ${ico('chevron',13)}</button></div>
+    ${[
+      {name:'Porridge de avena con plátano',time:'Desayuno · 08:00',kcal:420,p:18,c:68,f:9,done:true},
+      {name:'Pasta integral con salmón',time:'Almuerzo · 13:30',kcal:720,p:45,c:90,f:18,done:false},
+      {name:'Pollo al horno con boniato',time:'Cena · 20:30',kcal:580,p:52,c:48,f:14,done:false},
+    ].map((m,i)=>`
+      <div class="card" style="padding:13px;margin-top:${i?'8px':'0'};opacity:${m.done?.7:1}">
+        <div class="row" style="gap:11px">
+          <div class="img-ph" style="width:50px;height:50px;flex-shrink:0;font-size:8px">foto</div>
+          <div class="grow col" style="gap:3px">
+            <div class="row" style="justify-content:space-between;gap:6px">
+              <div class="title-sm" style="font-size:13.5px">${m.name}</div>
+              ${m.done?`<span style="color:var(--c-good)">${ico('check',13)}</span>`:''}
+            </div>
+            <div class="mono muted" style="font-size:10px">${m.time}</div>
+            <div class="row" style="gap:5px;margin-top:2px">
+              <span class="mono" style="font-size:11px"><strong>${m.kcal}</strong><span class="muted"> kcal</span></span>
+              <span class="mono muted">·</span>
+              <span class="mono" style="font-size:11px;color:var(--c-z2)">${m.p}P</span>
+              <span class="mono" style="font-size:11px;color:var(--c-z1)">${m.c}C</span>
+              <span class="mono" style="font-size:11px;color:var(--c-warm)">${m.f}G</span>
+            </div>
+          </div>
+        </div>
+      </div>`).join('')}
+
+  </div></div>`,
+
+plan: () => {
+  const days=[
+    {n:'LUN',d:5,b:true,f:true},{n:'MAR',d:6,b:true},{n:'MIÉ',d:7},
+    {n:'JUE',d:8,b:true,f:true},{n:'VIE',d:9,b:true,done:true},
+    {n:'SÁB',d:10,b:true,f:true,today:true},{n:'DOM',d:11},
+  ];
+  const exs=[
+    {name:'Press banca plano',sets:'4 × 6',rest:"2' desc",kg:80},
+    {name:'Remo en barra',sets:'4 × 8',rest:'90″',kg:70},
+    {name:'Press militar',sets:'3 × 10',rest:'90″',kg:50},
+    {name:'Curl bíceps barra',sets:'3 × 12',rest:'60″',kg:30},
+    {name:'Tríceps polea',sets:'3 × 12',rest:'60″',kg:25},
+  ];
+  return `
+  <div class="hdr"><div><div class="hdr-meta">Semana 19 · 5–11 May</div><h1>Plan</h1></div></div>
+  <div class="scroll"><div class="pad">
+
+    <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none;-webkit-overflow-scrolling:touch">
+      ${days.map((d,i)=>`
+        <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 7px;min-width:46px;border-radius:14px;background:${d.today?'var(--c-text)':'var(--c-surface)'};color:${d.today?'var(--c-bg)':'var(--c-text)'};border:1px solid ${d.today?'transparent':'var(--c-border)'}">
+          <div class="mono" style="font-size:9px;letter-spacing:.06em;color:${d.today?'rgba(10,10,10,.5)':'var(--c-text-muted)'}">${d.n}</div>
+          <div class="num" style="font-size:16px">${d.d}</div>
+          <div style="display:flex;gap:3px">
+            ${d.b?`<span style="width:4px;height:4px;border-radius:50%;background:${d.today?'rgba(10,10,10,.4)':'var(--c-accent)'}"></span>`:''}
+            ${d.f?`<span style="width:4px;height:4px;border-radius:50%;background:${d.today?'rgba(10,10,10,.4)':'var(--c-warm)'}"></span>`:''}
+            ${!d.b&&!d.f?`<span style="width:4px;height:4px;border-radius:50%;background:transparent"></span>`:''}
+          </div>
+        </div>`).join('')}
+    </div>
+
+    <div class="sec" style="margin-top:20px"><h2>Bici · Z2</h2><span class="pill good">${ico('check',11)}Garmin</span></div>
+    <div class="card">
+      <div class="title-md">Rodaje aeróbico largo</div>
+      <div class="muted" style="font-size:12.5px;margin-top:5px;line-height:1.5">Esfuerzo conversacional. Cadencia 85–95 rpm. Garabitas o carretera de Extremadura.</div>
+      <div style="margin-top:14px">${zonespec(null,2)}</div>
+      <div class="g2" style="margin-top:12px;gap:7px">
+        <div class="card tinted" style="padding:12px"><div class="eyebrow">Duración</div><div class="num" style="font-size:22px;margin-top:4px">90<span class="mono muted" style="font-size:11px;margin-left:2px">min</span></div></div>
+        <div class="card tinted" style="padding:12px"><div class="eyebrow">FC objetivo</div><div class="num" style="font-size:22px;margin-top:4px">130<span class="mono muted" style="font-size:10px">–</span>145</div></div>
+      </div>
+      <div class="row" style="gap:7px;margin-top:12px">
+        <button class="btn btn-primary" style="flex:1">${ico('check',13)} Enviado a Garmin</button>
+        <button class="btn btn-ghost btn-sm" style="width:44px;padding:0">${ico('settings',15)}</button>
+      </div>
+    </div>
+
+    <div class="sec"><h2>Fuerza · Tren superior</h2><span class="pill">${ico('dumbbell',11)}~55 min</span></div>
+    <div class="card" style="padding:0;overflow:hidden">
+      ${exs.map((ex,i)=>`
+        <div class="row" style="gap:11px;padding:12px 15px;border-bottom:${i<exs.length-1?'1px solid var(--c-border)':'none'}">
+          <div style="width:36px;height:36px;border-radius:9px;background:var(--c-surface-2);display:grid;place-items:center;flex-shrink:0">${ico('dumbbell',15)}</div>
+          <div class="grow">
+            <div class="title-sm" style="font-size:14px">${ex.name}</div>
+            <div class="mono muted" style="font-size:10px;margin-top:2px">${ex.sets} · ${ex.rest}</div>
+          </div>
+          <div class="num" style="font-size:17px;color:var(--c-accent)">${ex.kg}<span class="mono muted" style="font-size:9.5px;margin-left:2px">kg</span></div>
+        </div>`).join('')}
+    </div>
+
+    <div class="sec"><h2>Nutrición · Hoy</h2><span class="pill good">${ico('sparkle',11)}Ajustada</span></div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <div><div class="eyebrow">Total del día</div><div class="num" style="font-size:34px;line-height:1;margin-top:5px">2.640<span class="mono muted" style="font-size:12px;margin-left:3px">kcal</span></div></div>
+        <div class="mono" style="font-size:10.5px;color:var(--c-good)">doble sesión</div>
+      </div>
+      <div style="margin-top:12px">${macrobar(185*4,310*4,72*9)}</div>
+      <div class="row" style="justify-content:space-between;margin-top:9px">${macroChips(185,310,72)}</div>
+    </div>
+
+  </div></div>`;
+},
+
+nutricion: () => `
+  <div class="hdr"><div><div class="hdr-meta">Sáb · doble sesión</div><h1>Nutrición</h1></div></div>
+  <div class="scroll"><div class="pad">
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <div><div class="eyebrow">Total del día</div><div class="num" style="font-size:36px;line-height:1;margin-top:5px">2.640<span class="mono muted" style="font-size:12px;margin-left:3px">kcal</span></div></div>
+        <div class="col" style="align-items:flex-end;gap:3px">
+          <div class="mono" style="font-size:10.5px;color:var(--c-good)">↑ +12% vs media</div>
+          <div class="mono muted" style="font-size:10px">obj: 2.640</div>
+        </div>
+      </div>
+      <div style="margin-top:13px">${macrobar(185*4,310*4,72*9)}</div>
+      <div class="row" style="justify-content:space-between;margin-top:9px">${macroChips(185,310,72)}</div>
+    </div>
+
+    <div class="card" style="margin-top:10px;background:var(--c-accent-soft);border-color:transparent">
+      <div class="row" style="gap:7px;margin-bottom:6px">${ico('sparkle',13)}<div class="eyebrow">Reajuste automático · Strava</div></div>
+      <div style="font-size:13.5px;line-height:1.55">Salida de 90 min detectada (+1.180 kcal). He añadido <strong>+180g carbos</strong> en almuerzo y cena. Timing óptimo para recuperación.</div>
+    </div>
+
+    <button onclick="S.logPhoto=!S.logPhoto;render()" style="width:100%;margin-top:10px;text-align:left">
+      <div style="border:1.5px dashed var(--c-border-strong);border-radius:var(--r-lg);padding:17px;display:flex;align-items:center;gap:12px">
+        <div style="width:44px;height:44px;border-radius:11px;background:var(--c-accent-soft);color:var(--c-accent);display:grid;place-items:center;flex-shrink:0">${ico('camera',20)}</div>
+        <div class="col grow" style="gap:2px">
+          <div class="title-sm" style="font-size:14px">${S.logPhoto?'Tomate, mozzarella · 240 kcal':'Foto de lo que comes'}</div>
+          <div class="muted" style="font-size:12px">${S.logPhoto?'He restado 240 kcal de la cena manteniendo proteína.':'La IA identifica macros y ajusta el resto del día.'}</div>
+        </div>
+        ${ico('chevron',14)}
+      </div>
+    </button>
+
+    <div class="sec"><h2>Recetas de hoy</h2></div>
+    ${[
+      {tag:'DESAYUNO · 08:00',name:'Porridge de avena con plátano',ings:'80g avena · 1 plátano · 250ml leche · miel · canela',kcal:420,p:18,c:68,f:9,done:true},
+      {tag:'ALMUERZO · 13:30',name:'Pasta integral con salmón',ings:'150g pasta · 180g salmón · espinacas · ajo · AOVE',kcal:720,p:45,c:90,f:18},
+      {tag:'PRE-ENTRENO · 16:30',name:'Plátano + café solo',ings:'1 plátano · café solo',kcal:110,p:1,c:28,f:0},
+      {tag:'CENA · 20:30',name:'Pollo al horno con boniato',ings:'180g pollo · 200g boniato · brócoli · romero · AOVE',kcal:580,p:52,c:48,f:14,faded:true},
+    ].map((r,i)=>`
+      <div class="card" style="padding:0;overflow:hidden;margin-top:${i?'10px':'0'};opacity:${r.faded?.65:1}">
+        <div class="img-ph" style="height:120px;border-radius:var(--r-lg) var(--r-lg) 0 0">receta ${i+1}</div>
+        <div style="padding:14px">
+          <div class="row" style="justify-content:space-between">
+            <span class="eyebrow">${r.tag}</span>
+            ${r.done?`<span class="pill good">${ico('check',10)}Listo</span>`:''}
+          </div>
+          <div class="title-sm" style="margin-top:7px">${r.name}</div>
+          <div class="muted" style="font-size:12px;margin-top:5px;line-height:1.5">${r.ings}</div>
+          <div class="g4" style="margin-top:11px;gap:5px">
+            ${[{l:'kcal',v:r.kcal},{l:'P',v:r.p,c:'var(--c-z2)'},{l:'C',v:r.c,c:'var(--c-z1)'},{l:'G',v:r.f,c:'var(--c-warm)'}].map(c=>`
+              <div class="card tinted" style="padding:8px;text-align:center">
+                <div class="num" style="font-size:15px;color:${c.c||'var(--c-text)'}">${c.v}</div>
+                <div class="mono muted" style="font-size:9px;margin-top:2px;letter-spacing:.06em">${c.l.toUpperCase()}</div>
+              </div>`).join('')}
+          </div>
+        </div>
+      </div>`).join('')}
+
+  </div></div>`,
+
+progreso: () => `
+  <div class="hdr"><div><div class="hdr-meta">Últimas 4 semanas</div><h1>Progreso</h1></div></div>
+  <div class="scroll"><div class="pad">
+
+    <div style="display:flex;gap:4px;padding:4px;background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--r-pill);margin-bottom:16px">
+      ${['cuerpo','fuerza','bici'].map(t=>`
+        <button onclick="S.progresoTab='${t}';render()" style="flex:1;padding:8px 6px;border-radius:var(--r-pill);background:${S.progresoTab===t?'var(--c-text)':'transparent'};color:${S.progresoTab===t?'var(--c-bg)':'var(--c-text-muted)'};font-weight:500;font-size:12.5px;transition:background .18s,color .18s;border:0;cursor:pointer">
+          ${t.charAt(0).toUpperCase()+t.slice(1)}
+        </button>`).join('')}
+    </div>
+
+    ${S.progresoTab==='cuerpo'?`
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:flex-start">
+          <div><div class="eyebrow">Peso</div><div class="num" style="font-size:38px;line-height:1;margin-top:4px">76,2<span class="mono muted" style="font-size:13px;margin-left:3px">kg</span></div><div class="mono" style="font-size:10.5px;margin-top:5px;color:var(--c-good)">↓ −1,2 kg en 4 sem</div></div>
+          <div class="mono muted" style="font-size:10px;letter-spacing:.08em">SUUNTO</div>
+        </div>
+        <div style="margin-top:13px">${sparkline([77.4,77.2,77.0,76.8,76.6,76.5,76.3,76.2],'var(--c-accent)')}</div>
+      </div>
+      <div class="g2" style="margin-top:10px">
+        <div class="card" style="padding:13px"><div class="eyebrow">% Grasa</div><div class="num" style="font-size:26px;margin-top:4px">14,2<span class="mono muted" style="font-size:10px;margin-left:2px">%</span></div><div class="mono" style="font-size:10px;margin-top:3px;color:var(--c-good)">↓ −0,6%</div></div>
+        <div class="card" style="padding:13px"><div class="eyebrow">Músculo</div><div class="num" style="font-size:26px;margin-top:4px">63,4<span class="mono muted" style="font-size:10px;margin-left:2px">kg</span></div><div class="mono" style="font-size:10px;margin-top:3px;color:var(--c-good)">↑ +0,4 kg</div></div>
+      </div>` :
+
+    S.progresoTab==='fuerza'?`
+      <div class="card" style="padding:0;overflow:hidden">
+        ${[{name:'Sentadilla',rm:120,d:'+5kg'},{name:'Press banca',rm:97.5,d:'+2.5kg'},{name:'Peso muerto',rm:145,d:'+5kg'},{name:'Press militar',rm:72.5,d:'='}].map((e,i,arr)=>`
+          <div class="row" style="padding:12px 15px;border-bottom:${i<arr.length-1?'1px solid var(--c-border)':'none'};gap:10px">
+            <div class="grow"><div class="title-sm" style="font-size:14px">${e.name}</div><div class="eyebrow" style="margin-top:2px">1RM ESTIMADO</div></div>
+            <div class="num" style="font-size:19px">${e.rm}<span class="mono muted" style="font-size:9.5px;margin-left:2px">kg</span></div>
+            <div class="mono" style="font-size:11px;color:${e.d==='='?'var(--c-text-muted)':'var(--c-good)'};min-width:34px;text-align:right">${e.d}</div>
+          </div>`).join('')}
+      </div>` :
+
+    `<div class="card">
+      <div class="g2" style="gap:8px">
+        <div class="card tinted" style="padding:12px"><div class="eyebrow">TSS total</div><div class="num" style="font-size:24px;margin-top:3px">1.248</div><div class="muted" style="font-size:11px;margin-top:2px">312/semana</div></div>
+        <div class="card tinted" style="padding:12px"><div class="eyebrow">Distancia</div><div class="num" style="font-size:24px;margin-top:3px">487<span class="mono muted" style="font-size:10px;margin-left:2px">km</span></div></div>
+        <div class="card tinted" style="padding:12px"><div class="eyebrow">Tiempo Z2</div><div class="num" style="font-size:24px;margin-top:3px">68<span class="mono muted" style="font-size:10px;margin-left:2px">%</span></div></div>
+        <div class="card tinted" style="padding:12px"><div class="eyebrow">FC media</div><div class="num" style="font-size:24px;margin-top:3px">138<span class="mono muted" style="font-size:10px;margin-left:2px">bpm</span></div></div>
+      </div>
+    </div>`}
+
+    <div class="sec"><h2>Adherencia</h2></div>
+    <div class="card">
+      <div class="row" style="justify-content:space-around">
+        ${[{l:'Bici',v:80,c:'var(--c-accent)'},{l:'Fuerza',v:70,c:'var(--c-warm)'},{l:'Comida',v:85,c:'var(--c-good)'}].map(a=>`
+          <div class="col" style="align-items:center;gap:7px">
+            ${ring(a.v,65,5,a.c,`<span class="num" style="font-size:17px;color:${a.c}">${a.v}<span style="font-size:10px;color:var(--c-text-muted)">%</span></span>`)}
+            <div class="mono muted" style="font-size:10px;letter-spacing:.06em">${a.l.toUpperCase()}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+  </div></div>`,
+
+coach: () => `
+  <div class="hdr">
+    <div><div class="hdr-meta">Asistente IA</div><h1>Coach</h1></div>
+    <div class="pill" style="background:var(--c-accent-soft);color:var(--c-accent);border-color:transparent">
+      <span class="dot" style="animation:pulse 2s infinite"></span>activo
+    </div>
+  </div>
+  <div class="scroll" id="chat-scroll">
+    <div style="display:flex;flex-direction:column;padding:4px 20px 12px;gap:0">
+      ${S.chatMsgs.map(m=>`
+        <div class="bubble-wrap ${m.from}">
+          ${m.from==='ai'?`<div class="ai-dot">${ico('sparkle',13)}</div>`:''}
+          <div class="bubble ${m.from==='ai'?'ai':'user'}">${m.text}</div>
+        </div>`).join('')}
+      ${S.chatThinking?`
+        <div class="bubble-wrap">
+          <div class="ai-dot">${ico('sparkle',13)}</div>
+          <div class="bubble ai" style="display:flex;gap:4px;align-items:center;padding:12px 16px">
+            ${[0,1,2].map(i=>`<span style="width:6px;height:6px;border-radius:50%;background:var(--c-text-muted);animation:bounce 1.2s ${i*.15}s infinite"></span>`).join('')}
+          </div>
+        </div>`:''}
+    </div>
+  </div>
+  <div style="display:flex;gap:7px;overflow-x:auto;padding:7px 20px 7px;scrollbar-width:none">
+    ${['¿Cambio el entreno hoy?','¿Qué como antes de la salida?','Me siento cargado','No tengo espinacas','¿Por qué tanto volumen?'].map(s=>`<button class="chip" onclick="sendChat('${s.replace(/'/g,"&#39;")}')">${s}</button>`).join('')}
+  </div>
+  <div style="padding:7px 16px 90px;display:flex;gap:8px;align-items:center;background:color-mix(in oklab,var(--c-bg-2) 88%,transparent);backdrop-filter:blur(20px)">
+    <input class="input" id="chat-in" placeholder="Pregunta al coach…" onkeydown="if(event.key==='Enter'&&this.value.trim())sendChat(this.value)">
+    <button onclick="var i=document.getElementById('chat-in');sendChat(i.value)" style="width:44px;height:44px;border-radius:50%;background:var(--c-accent);color:var(--c-accent-on);display:grid;place-items:center;flex-shrink:0">${ico('send',15)}</button>
+  </div>`,
+
+};
+
+// ── Sheet: post-workout summary ────────────────────────────
+const SHEET_SUMMARY = () => `
+  <div class="sheet-bd" onclick="S.sheet=null;render()"></div>
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="row" style="justify-content:space-between;margin-bottom:14px">
+      <div><div class="eyebrow">VIE 9 · 18:42 · Strava</div><div class="title-md" style="margin-top:4px">Garabitas · vuelta larga</div></div>
+      <button onclick="S.sheet=null;render()" style="color:var(--c-text-muted)">${ico('chevron',16)}</button>
+    </div>
+    <div class="g2" style="gap:8px;margin-bottom:14px">
+      <div class="card tinted" style="padding:11px"><div class="eyebrow">Tiempo</div><div class="num" style="font-size:22px;margin-top:3px">1h 32m</div></div>
+      <div class="card tinted" style="padding:11px"><div class="eyebrow">Distancia</div><div class="num" style="font-size:22px;margin-top:3px">42.8<span class="mono muted" style="font-size:10px;margin-left:2px">km</span></div></div>
+      <div class="card tinted" style="padding:11px"><div class="eyebrow">TSS</div><div class="num" style="font-size:22px;margin-top:3px;color:var(--c-z2)">84</div></div>
+      <div class="card tinted" style="padding:11px"><div class="eyebrow">NP</div><div class="num" style="font-size:22px;margin-top:3px">178<span class="mono muted" style="font-size:10px;margin-left:2px">w</span></div></div>
+    </div>
+    <div style="margin-bottom:14px">${zonespec([8,71,16,4,1],2)}</div>
+    <div class="card" style="background:var(--c-accent-soft);border-color:transparent">
+      <div class="row" style="gap:7px;margin-bottom:6px">${ico('sparkle',13)}<div class="eyebrow">Análisis del coach</div></div>
+      <div style="font-size:13.5px;line-height:1.55">Sesión muy bien ejecutada. <strong>71% en Z2</strong>, justo el objetivo. Nutrición reajustada: +180g carbos para mañana.</div>
+    </div>
+  </div>`;
+
+// ── Actions ────────────────────────────────────────────────
+function go(name) {
+  S.screen = name;
+  ['home','plan','nutricion','progreso','coach'].forEach(id => {
+    const el = document.getElementById(`n-${id}`);
+    if(el) el.classList.toggle('active', id===name);
+  });
+  render();
+}
+
+function toggleTheme() {
+  const html = document.documentElement;
+  html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+}
+
+function sendChat(text) {
+  const inp = document.getElementById('chat-in');
+  const val = (text || (inp && inp.value) || '').trim();
+  if(!val) return;
+  if(inp) inp.value = '';
+  S.chatMsgs.push({from:'user', text: val});
+  S.chatThinking = true;
+  render();
+  setTimeout(() => {
+    const t = val.toLowerCase();
+    let reply = 'Lo tengo. Reviso tu plan y te doy una propuesta concreta.';
+    if(t.includes('cargado')||t.includes('cansado')||t.includes('cambio'))
+      reply = 'Con ese feedback bajo la intensidad: en lugar de Z2 90′, hago 60′ Z1–Z2 suave. Pasa la cena a más carbos para recuperar.';
+    else if(t.includes('como')||t.includes('antes')||t.includes('salida'))
+      reply = 'Para una salida larga: 60–90 min antes, porridge con plátano y miel. Durante, 1–2 geles cada 45′ y bebida con sales.';
+    else if(t.includes('espinacas'))
+      reply = 'Sin problema. Las cambio por kale o canónigos. Si no tienes hoja verde, brócoli o judías verdes ajustan los micros igual.';
+    else if(t.includes('volumen'))
+      reply = 'Esta semana es de carga. Tu HRV ha estado estable y el peso baja lento — buen momento para subir TSS. La próxima toca descarga.';
+    S.chatThinking = false;
+    S.chatMsgs.push({from:'ai', text: reply});
+    render();
+    setTimeout(()=>{const s=document.getElementById('chat-scroll');if(s)s.scrollTop=s.scrollHeight;},50);
+  }, 950);
+}
+
+function render() {
+  const scr = document.getElementById('screen');
+  const fn = SCREENS[S.screen];
+  if(fn) scr.innerHTML = fn();
+
+  // Sheet overlay
+  const existing = document.getElementById('sheet-overlay');
+  if(S.sheet==='summary') {
+    if(!existing) {
+      const div = document.createElement('div');
+      div.id = 'sheet-overlay';
+      div.innerHTML = SHEET_SUMMARY();
+      document.getElementById('app').appendChild(div);
+    }
+  } else {
+    if(existing) existing.remove();
+  }
+
+  // Scroll chat to bottom
+  if(S.screen==='coach') {
+    setTimeout(()=>{const s=document.getElementById('chat-scroll');if(s)s.scrollTop=s.scrollHeight;},30);
+  }
+}
+
+// ── Clock ──────────────────────────────────────────────────
+function updateClock() {
+  const d = new Date();
+  const h = d.getHours().toString().padStart(2,'0');
+  const m = d.getMinutes().toString().padStart(2,'0');
+  const el = document.getElementById('clock');
+  if(el) el.textContent = `${h}:${m}`;
+}
+updateClock();
+setInterval(updateClock, 10000);
+
+render();
+</script>
+
+</body>
+</html>
