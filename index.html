@@ -427,11 +427,14 @@ const redirectUri = () => REDIRECT_URI;
 async function intervalsGet(path) {
   const cfg = CFG.get();
   if (!cfg.intervals_key || !cfg.intervals_athlete_id) throw new Error('not_configured');
-  const auth = btoa(`API:${cfg.intervals_key}`);
+  const auth = btoa(`API:${cfg.intervals_key.trim()}`);
   const resp = await fetch(`${INTERVALS_API}${path}`, {
     headers: { 'Authorization': `Basic ${auth}` }
   });
-  if (!resp.ok) throw new Error('Intervals.icu ' + resp.status);
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => '');
+    throw new Error(`${resp.status} – ${body || 'error'}`);
+  }
   return resp.json();
 }
 
@@ -1308,7 +1311,7 @@ const SHEET_AJUSTES = () => {
     </div>
 
     ${S.ajMsg?`<div class="card" style="background:rgba(74,222,128,.1);border-color:var(--c-good);margin-bottom:12px"><div style="font-size:13.5px;color:var(--c-good)">${S.ajMsg}</div></div>`:''}
-    ${S.ajErr?`<div class="card" style="background:rgba(239,74,74,.1);border-color:var(--c-bad);margin-bottom:12px"><div style="font-size:13.5px;color:var(--c-bad)">${S.ajErr}</div></div>`:''}
+    ${(S.ajErr||S.liveData.intervalsError)?`<div class="card" style="background:rgba(239,74,74,.1);border-color:var(--c-bad);margin-bottom:12px"><div style="font-size:13px;color:var(--c-bad);word-break:break-all">${S.ajErr||('Intervals.icu: '+S.liveData.intervalsError)}</div></div>`:''}
 
     <!-- ── Intervals.icu ── -->
     <div class="eyebrow" style="margin-bottom:10px">Intervals.icu</div>
@@ -1556,7 +1559,7 @@ async function loadLiveData() {
         S.liveData.weeklyRides = week.filter(a => rideTypes.includes(a.type)).length;
         S.liveData.weeklyKm = +(week.reduce((s,a) => s + (a.distance||0), 0)/1000).toFixed(1);
         S.liveData.tssChart = calcWeeklyTSSFromIntervals(acts);
-      }).catch(()=>{})
+      }).catch(e => { S.liveData.intervalsError = e.message; })
     );
     jobs.push(
       loadIntervalsWellness().then(w => {
