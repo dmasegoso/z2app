@@ -409,10 +409,20 @@ function fmtActivity(act) {
   };
 }
 
+function calcWeeklyTSS(activities) {
+  const now = Date.now();
+  return Array.from({length:6}, (_,i) => {
+    const start = now - (6-i)*7*86400000, end = now - (5-i)*7*86400000;
+    return activities
+      .filter(a => { const t = new Date(a.start_date_local).getTime(); return t>=start && t<end; })
+      .reduce((s,a) => s + (calcTSS(a)||0), 0);
+  });
+}
+
 async function loadStravaData() {
   const cached = DCACHE.get('strava');
   if (cached) return cached;
-  const acts = await stravaGet('/athlete/activities?per_page=15');
+  const acts = await stravaGet('/athlete/activities?per_page=60');
   const data = { activities: acts };
   DCACHE.set('strava', data);
   return data;
@@ -1027,10 +1037,10 @@ progreso: () => {
           <div class="eyebrow">TSS semanal</div>
           <span class="mono muted" style="font-size:10px">Últimas 6 semanas</span>
         </div>
-        ${sparkline(TSS_WEEKS,'var(--c-accent)')}
+        ${sparkline(S.liveData.tssChart||TSS_WEEKS,'var(--c-accent)')}
         <div class="row" style="justify-content:space-between;margin-top:4px">
           <span class="mono muted" style="font-size:10px">sem −5</span>
-          <span class="num" style="font-size:10px;color:var(--c-accent)">${TSS_WEEKS[TSS_WEEKS.length-1]} TSS esta sem</span>
+          <span class="num" style="font-size:10px;color:var(--c-accent)">${(S.liveData.tssChart||TSS_WEEKS).at(-1)} TSS esta sem${stravaConnected()?'':' (ejemplo)'}</span>
         </div>
       </div>
     </div>`}
@@ -1364,18 +1374,29 @@ function loadVideo(exIdx) {
 
 function toggleSerie(exIdx, serieIdx) {
   S.seriesState[exIdx][serieIdx].done = !S.seriesState[exIdx][serieIdx].done;
-  renderSheet();
+  saveSeriesState(); renderSheet();
 }
 
 function addSerie(exIdx) {
   const last = S.seriesState[exIdx].slice(-1)[0];
   S.seriesState[exIdx].push({kg:last.kg, reps:last.reps, done:false});
-  renderSheet();
+  saveSeriesState(); renderSheet();
+}
+
+function saveSeriesState() {
+  try { localStorage.setItem('z2_series', JSON.stringify(S.seriesState)); } catch(e) {}
+}
+
+function loadSeriesState() {
+  try {
+    const v = JSON.parse(localStorage.getItem('z2_series'));
+    if (v?.length === EXERCISES.length) S.seriesState = v;
+  } catch(e) {}
 }
 
 function updateSerieVal(exIdx, serieIdx, field, value) {
   const n = parseFloat(value);
-  if(!isNaN(n)) S.seriesState[exIdx][serieIdx][field] = n;
+  if(!isNaN(n)) { S.seriesState[exIdx][serieIdx][field] = n; saveSeriesState(); }
 }
 
 function toggleSensacion(s) {
@@ -1399,28 +1420,43 @@ function sendChat(text) {
   render();
   setTimeout(() => {
     const t = val.toLowerCase();
+
+    // Datos reales (con fallback)
+    const su  = S.liveData.suunto;
+    const hrv = su?.hrv ?? 62;
+    const rec = su?.recursos ?? 94;
+    const sh  = su?.sueno_h ?? 7, sm = su?.sueno_m ?? 20;
+    const ph  = su?.profundo_h ?? 1;
+    const tss = S.liveData.weeklyTSS ?? 312;
+    const km  = S.liveData.weeklyKm ?? 0;
+    const act = S.liveData.lastActivity;
+    const kg  = S.liveData.body?.weight?.toFixed(1) ?? '76.2';
+    const fat = S.liveData.body?.fatPct?.toFixed(1) ?? '14.2';
+
     let reply = 'Lo tengo. Reviso tu plan y te doy una propuesta concreta.';
 
     if(t.includes('garabitas'))
-      reply = 'La vuelta de Garabitas de ayer fue perfecta: 71% en Z2, TSS 84, FC media 138 bpm y Pot. norm. 178w. Todo dentro del objetivo. Para la de hoy mantén el mismo ritmo — cadencia 87–92 rpm y FC entre 130 y 145.';
+      reply = act
+        ? `Tu última sesión fue "${act.name}" — ${act.duration}, ${act.distance} km${act.tss ? `, TSS ${act.tss}` : ''}${act.hr ? `, FC media ${act.hr} bpm` : ''}. Para la próxima vuelta mantén FC entre 130 y 145 bpm, cadencia 87–92 rpm.`
+        : 'Para Garabitas mantén FC entre 130 y 145 bpm, ritmo conversacional y cadencia ≥85 rpm. Conecta Strava para ver tus datos de la última vuelta.';
     else if(t.includes('hrv'))
-      reply = 'Tu HRV hoy es 62ms, 4ms por encima de tu media de las últimas 4 semanas. Eso, junto con los Recursos al 94%, confirma que estás en plena forma. Puedes entrenar con plena intensidad en el doble de hoy.';
+      reply = `Tu HRV hoy es ${hrv}ms con Recursos al ${rec}%. ${rec >= 85 ? 'Estás en plena forma — puedes entrenar con plena intensidad.' : rec >= 65 ? 'Buena recuperación. Entrena con normalidad pero sin forzar.' : 'Cuerpo pidiendo descanso. Considera bajar intensidad o hacer Z1 suave.'}`;
     else if(t.includes('tss'))
-      reply = 'Llevas 312 TSS esta semana en 3 de 4 sesiones. La salida de hoy añadirá ~84 TSS más, cerrando en ~396, muy cerca del objetivo de 400. Está en la zona ideal para seguir cargando sin riesgo de sobreentrenar.';
+      reply = `Llevas ${tss} TSS esta semana${km ? ` en ${km} km` : ''}. ${tss < 300 ? 'Hay margen para cargar más si te sientes bien.' : tss < 400 ? 'Carga en buena zona. La salida de hoy encaja perfectamente.' : 'Semana intensa — valora si la sesión de hoy la bajas a Z1 según cómo te sientas.'}`;
     else if(t.includes('z2'))
-      reply = 'Para mantenerte en Z2 en Garabitas: FC entre 130 y 145 bpm, ritmo conversacional. Si subes la Cuesta de las Perdices deja que la FC suba puntualmente, pero no te quedes ahí más de 2 min. Cadencia ≥85 rpm te ayuda a no pisar el acelerador.';
+      reply = `Para mantenerte en Z2: FC entre 130 y 145 bpm, ritmo conversacional. ${hrv >= 60 ? `Con HRV ${hrv}ms estás fino para mantener el esfuerzo toda la sesión.` : `Con HRV ${hrv}ms no fuerces — si la FC sube de 145 baja la potencia.`} Cadencia ≥85 rpm ayuda a no pisar el acelerador.`;
     else if(t.includes('sueño')||t.includes('sueno')||t.includes('dormi'))
-      reply = 'Anoche dormiste 7h 20m con 1h 40m de sueño profundo — mejor que tu media de 6h 50m. Eso explica el HRV de 62ms y los recursos al 94%. Sigue con ese horario esta semana, estás respondiendo muy bien.';
+      reply = `Anoche dormiste ${sh}h ${sm}m con ${ph}h de sueño profundo. ${sh >= 7 ? `Buen descanso — eso explica el HRV de ${hrv}ms y los Recursos al ${rec}%.` : `Menos de 7h. Intenta acostarte 30 min antes esta semana, impacta directo en el HRV.`}`;
     else if(t.includes('peso'))
-      reply = 'Estás en 76,2 kg, bajando 1,2 kg en 4 semanas a ritmo controlado. Con el déficit actual y las 2.640 kcal de hoy (doble sesión), el modelo apunta a llegar a 75 kg en 3–4 semanas sin perder músculo. Músculo +0,4 kg en el período — excelente composición.';
+      reply = `Estás en ${kg} kg con ${fat}% de grasa según Withings. ${parseFloat(fat) < 15 ? 'Composición corporal excelente para ciclismo de fondo.' : 'Hay margen para optimizar composición manteniendo las calorías de los días de doble sesión.'}`;
     else if(t.includes('cargado')||t.includes('cansado')||t.includes('cambio'))
-      reply = 'Con ese feedback bajo la intensidad: en lugar de Z2 90′, hago 60′ Z1–Z2 suave. Pasa la cena a más carbos para recuperar. Tu HRV está en 62ms — mañana deberías estar fino si descansas bien esta noche.';
+      reply = `Con Recursos al ${rec}% ${rec < 70 ? 'y sintiéndote así, te recomiendo bajar a 60′ Z1–Z2 suave hoy y priorizar sueño esta noche.' : 'tienes margen — puede ser fatiga puntual. Calienta 15′ y decide según sensaciones.'}`;
     else if(t.includes('como')||t.includes('antes')||t.includes('salida'))
-      reply = 'Para la salida de 90 min: 60–90 min antes, porridge con plátano y miel (~420 kcal, 68g carbos). Durante la salida, 1–2 geles cada 45 min y bebida isotónica con sodio. Con TSS acumulado de 312 esta semana, no salgas en ayunas.';
+      reply = `Para una salida larga: 60–90 min antes, porridge con plátano y miel (~420 kcal, 68g carbos). Con ${tss} TSS acumulados esta semana${tss > 250 ? ', no salgas en ayunas' : ' tienes depósitos bien llenos'}.`;
     else if(t.includes('espinacas'))
-      reply = 'Sin problema. Las cambio por kale o canónigos en la receta de hoy. Si no tienes hoja verde, brócoli o judías verdes ajustan los micros igual de bien.';
+      reply = 'Sin problema. Las cambio por kale o canónigos. Si no tienes hoja verde, brócoli o judías verdes ajustan los micros igual de bien.';
     else if(t.includes('volumen'))
-      reply = 'Esta semana es de carga máxima (objetivo 400 TSS). Tu HRV lleva 5 días estable por encima de 60ms y el peso baja lento — buena señal para seguir subiendo. La próxima semana toca descarga: −30% de volumen.';
+      reply = `Llevas ${tss} TSS esta semana. ${tss < 350 ? 'Hay margen para subir — tu HRV está estable.' : 'Ya es una semana cargada.'} La próxima toca descarga: −30% de volumen para asimilar la carga.`;
 
     S.chatThinking = false;
     S.chatMsgs.push({from:'ai', text:reply});
@@ -1479,6 +1515,7 @@ async function loadLiveData() {
         S.liveData.weeklyTSS = week.reduce((s,a) => s + (calcTSS(a)||0), 0);
         S.liveData.weeklyRides = week.filter(a => a.type==='Ride').length;
         S.liveData.weeklyKm = +(week.reduce((s,a) => s + a.distance, 0)/1000).toFixed(1);
+        S.liveData.tssChart = calcWeeklyTSS(d.activities);
       }).catch(()=>{})
     );
   }
@@ -1614,6 +1651,7 @@ async function initApp() {
     }
   }
   loadSuuntoCache();
+  loadSeriesState();
   await loadLiveData();
   render();
 }
