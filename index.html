@@ -366,7 +366,7 @@ const TKNS = {
   },
 };
 const DCACHE = {
-  TTL: { strava: 5 * 60 * 1000, withings: 60 * 60 * 1000 }, // Strava 5 min, Withings 1 h
+  TTL: { intervals_acts: 5 * 60 * 1000, intervals_well: 60 * 60 * 1000, withings: 60 * 60 * 1000 },
   get: (k) => { try { const v = JSON.parse(localStorage.getItem('z2_dc_' + k)); return (v && Date.now() - v.ts < (DCACHE.TTL[k] ?? 3600000)) ? v.d : null; } catch(e) { return null; } },
   set: (k, d) => localStorage.setItem('z2_dc_' + k, JSON.stringify({ts: Date.now(), d})),
   clear: (k) => k ? localStorage.removeItem('z2_dc_' + k) : Object.keys(localStorage).filter(k => k.startsWith('z2_dc_')).forEach(k => localStorage.removeItem(k)),
@@ -419,108 +419,74 @@ async function intervalsSend() {
   }
 }
 
-// ── Strava ─────────────────────────────────────────────────
-const STRAVA_AUTH  = 'https://www.strava.com/oauth/authorize';
-const STRAVA_TOKEN = 'https://www.strava.com/oauth/token';
-const STRAVA_API   = 'https://www.strava.com/api/v3';
-
-const stravaConnected = () => !!TKNS.get().strava_access;
-// URI fija — debe coincidir EXACTAMENTE con lo registrado en Strava / Withings
+// URI fija para Withings OAuth
 const REDIRECT_URI = 'https://dmasegoso.github.io/z2app/';
 const redirectUri = () => REDIRECT_URI;
 
-function stravaConnect() {
-  const id = document.getElementById('s-id')?.value.trim() || CFG.get().strava_id;
-  const sec = document.getElementById('s-sec')?.value.trim() || CFG.get().strava_secret;
-  if (id) CFG.set({strava_id: id});
-  if (sec) CFG.set({strava_secret: sec});
-  if (!CFG.get().strava_id || !CFG.get().strava_secret) {
-    S.ajErr = 'Rellena Client ID y Client Secret de Strava.'; renderSheet(); return;
-  }
-  location.href = `${STRAVA_AUTH}?client_id=${CFG.get().strava_id}&redirect_uri=${encodeURIComponent(redirectUri())}&response_type=code&scope=read,activity:read_all&state=strava`;
-}
-
-function stravaDisconnect() { TKNS.del('strava_'); DCACHE.clear(); S.liveData = {}; S.sheet = 'ajustes'; render(); }
-
-async function stravaExchange(code) {
+// ── Intervals.icu — datos ──────────────────────────────────
+async function intervalsGet(path) {
   const cfg = CFG.get();
-  const r = await fetch(STRAVA_TOKEN, {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({client_id: cfg.strava_id, client_secret: cfg.strava_secret, code, grant_type: 'authorization_code'}),
+  if (!cfg.intervals_key || !cfg.intervals_athlete_id) throw new Error('not_configured');
+  const auth = btoa(`API:${cfg.intervals_key}`);
+  const resp = await fetch(`${INTERVALS_API}${path}`, {
+    headers: { 'Authorization': `Basic ${auth}` }
   });
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  const d = await r.json();
-  if (!d.access_token) throw new Error(d.message || 'Sin token');
-  TKNS.set({strava_access: d.access_token, strava_refresh: d.refresh_token, strava_expires: d.expires_at,
-    strava_name: `${d.athlete?.firstname||''} ${d.athlete?.lastname||''}`.trim()});
+  if (!resp.ok) throw new Error('Intervals.icu ' + resp.status);
+  return resp.json();
 }
 
-async function stravaRefresh() {
-  const cfg = CFG.get(), t = TKNS.get();
-  if (!t.strava_refresh) { TKNS.del('strava_'); return false; }
-  if (t.strava_expires > Date.now() / 1000 + 60) return true;
-  try {
-    const r = await fetch(STRAVA_TOKEN, {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({client_id: cfg.strava_id, client_secret: cfg.strava_secret, refresh_token: t.strava_refresh, grant_type: 'refresh_token'}),
-    });
-    const d = await r.json();
-    if (!d.access_token) { TKNS.del('strava_'); return false; }
-    TKNS.set({strava_access: d.access_token, strava_refresh: d.refresh_token, strava_expires: d.expires_at});
-    return true;
-  } catch(e) { return false; }
-}
-
-async function stravaGet(path) {
-  if (!await stravaRefresh()) throw new Error('not_connected');
-  const r = await fetch(STRAVA_API + path, {headers: {Authorization: 'Bearer ' + TKNS.get().strava_access}});
-  if (!r.ok) throw new Error('Strava ' + r.status);
-  return r.json();
-}
-
-function calcTSS(act) {
-  const ftp = parseInt(CFG.get().ftp) || 200;
-  const np = act.weighted_average_watts;
-  if (!np) return null;
-  const IF = np / ftp;
-  return Math.round((act.moving_time * np * IF) / (ftp * 3600) * 100);
-}
-
-function fmtActivity(act) {
+function fmtIntervalsActivity(act) {
   const d = new Date(act.start_date_local);
   const days = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
   const dateStr = `${days[d.getDay()]} ${d.getDate()} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-  const mins = Math.round(act.moving_time / 60);
+  const mins = Math.round((act.moving_time || 0) / 60);
   const h = Math.floor(mins / 60), m = mins % 60;
   return {
     date: dateStr,
     name: act.name,
     duration: h > 0 ? `${h}h ${m}m` : `${mins}m`,
-    distance: (act.distance / 1000).toFixed(1),
-    tss: calcTSS(act),
+    distance: ((act.distance || 0) / 1000).toFixed(1),
+    tss: act.icu_training_load ? Math.round(act.icu_training_load) : null,
     hr: act.average_heartrate ? Math.round(act.average_heartrate) : null,
-    np: act.weighted_average_watts || null,
-    kcal: act.kilojoules ? Math.round(act.kilojoules * 4.184) : null,
+    np: act.normalized_power || null,
+    kcal: act.calories || null,
     type: act.type,
   };
 }
 
-function calcWeeklyTSS(activities) {
+function calcWeeklyTSSFromIntervals(activities) {
   const now = Date.now();
   return Array.from({length:6}, (_,i) => {
     const start = now - (6-i)*7*86400000, end = now - (5-i)*7*86400000;
-    return activities
+    return Math.round(activities
       .filter(a => { const t = new Date(a.start_date_local).getTime(); return t>=start && t<end; })
-      .reduce((s,a) => s + (calcTSS(a)||0), 0);
+      .reduce((s,a) => s + (a.icu_training_load||0), 0));
   });
 }
 
-async function loadStravaData() {
-  const cached = DCACHE.get('strava');
+async function loadIntervalsActivities() {
+  const cached = DCACHE.get('intervals_acts');
   if (cached) return cached;
-  const acts = await stravaGet('/athlete/activities?per_page=60');
-  const data = { activities: acts };
-  DCACHE.set('strava', data);
+  const cfg = CFG.get();
+  const pad = n => String(n).padStart(2,'0');
+  const oldest = new Date(Date.now() - 60*86400000);
+  const oldestStr = `${oldest.getFullYear()}-${pad(oldest.getMonth()+1)}-${pad(oldest.getDate())}`;
+  const now = new Date();
+  const newestStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  const acts = await intervalsGet(`/athlete/${cfg.intervals_athlete_id}/activities?oldest=${oldestStr}&newest=${newestStr}`);
+  DCACHE.set('intervals_acts', acts);
+  return acts;
+}
+
+async function loadIntervalsWellness() {
+  const cached = DCACHE.get('intervals_well');
+  if (cached) return cached;
+  const cfg = CFG.get();
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  const data = await intervalsGet(`/athlete/${cfg.intervals_athlete_id}/wellness/${dateStr}`);
+  DCACHE.set('intervals_well', data);
   return data;
 }
 
@@ -653,9 +619,7 @@ let S = {
   exerciseVideo: false,
   seriesState: initSeriesState(),
   sensaciones: [],
-  liveData: {},         // datos reales de Strava / Withings / Suunto
-  suuntoLoading: false,
-  suuntoError: null,
+  liveData: {},         // datos reales de Intervals.icu / Withings
   ajErr: null,
   ajMsg: null,
   intervalsSent: false,
@@ -785,37 +749,33 @@ home: () => {
     </button>
 
     <div class="sec"><h2>Estado físico</h2>
-      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--c-accent);font-size:12px;font-weight:500">
-        ${S.suuntoLoading
-          ? `<span class="mono muted" style="font-size:11px">Analizando…</span>`
-          : `${ico('camera',13)}<span>Subir Suunto</span>`}
-        <input type="file" accept="image/*" style="display:none" onchange="handleSuuntoUpload(this)" ${S.suuntoLoading?'disabled':''}>
-      </label>
+      ${intervalsConnected() ? `<span class="mono subtle" style="font-size:10px">Suunto vía Intervals.icu</span>` : `<button class="card-link" onclick="S.sheet='ajustes';S.ajErr=null;S.ajMsg=null;render()">Conectar Intervals.icu ${ico('chevron',13)}</button>`}
     </div>
-    ${S.suuntoError ? `<div class="card" style="background:rgba(239,74,74,.1);border-color:var(--c-bad);margin-bottom:8px;padding:11px 14px"><div style="font-size:13px;color:var(--c-bad)">${S.suuntoError}</div></div>` : ''}
     <div class="card">
       ${(() => {
-        const su = S.liveData.suunto;
-        const recursos = su?.recursos ?? 94;
-        const hrv = su?.hrv ?? 62;
-        const sh = su?.sueno_h ?? 7, sm = su?.sueno_m ?? 20;
-        const ph = su?.profundo_h ?? 1, pm = su?.profundo_m ?? 40;
-        const label = recursos >= 85 ? 'En plena forma' : recursos >= 65 ? 'Bien recuperado' : 'Recuperación moderada';
-        const desc = recursos >= 85 ? 'Recursos altos. Listo para el doble entreno.' : recursos >= 65 ? 'Buena recuperación. Entrena con normalidad.' : 'Cuerpo pidiendo descanso. Considera bajar intensidad.';
-        const col = recursos >= 85 ? 'var(--c-good)' : recursos >= 65 ? 'var(--c-warn)' : 'var(--c-bad)';
+        const w = S.liveData.wellness;
+        const hrv = w?.hrv ?? 62;
+        const sleepScore = w?.sleepScore ?? null;
+        const readiness = sleepScore ?? 94;
+        const sh = w?.sleepSecs ? Math.floor(w.sleepSecs/3600) : 7;
+        const sm = w?.sleepSecs ? Math.floor((w.sleepSecs%3600)/60) : 20;
+        const rhr = w?.restingHR ?? null;
+        const label = readiness >= 85 ? 'En plena forma' : readiness >= 65 ? 'Bien recuperado' : 'Recuperación moderada';
+        const desc = readiness >= 85 ? 'Sueño y HRV excelentes. Listo para el doble entreno.' : readiness >= 65 ? 'Buena recuperación. Entrena con normalidad.' : 'Cuerpo pidiendo descanso. Considera bajar intensidad.';
+        const col = readiness >= 85 ? 'var(--c-good)' : readiness >= 65 ? 'var(--c-warn)' : 'var(--c-bad)';
         return `
         <div class="row" style="align-items:flex-start;gap:13px">
-          ${ring(recursos,78,7,col,`<span class="num" style="font-size:22px;color:${col}">${recursos}<span style="font-size:12px;color:var(--c-text-muted)">%</span></span>`)}
+          ${ring(readiness,78,7,col,`<span class="num" style="font-size:22px;color:${col}">${readiness}<span style="font-size:12px;color:var(--c-text-muted)">%</span></span>`)}
           <div class="grow" style="padding-top:3px">
             <div class="title-sm">${label}</div>
             <div class="muted" style="font-size:12.5px;margin-top:3px;line-height:1.45">${desc}</div>
-            ${su?.ts ? `<div class="mono subtle" style="font-size:10px;margin-top:5px">Suunto · ${fmtSuuntoAge(su.ts)}</div>` : '<div class="mono subtle" style="font-size:10px;margin-top:5px">Datos de ejemplo · sube captura</div>'}
+            <div class="mono subtle" style="font-size:10px;margin-top:5px">${w ? 'Intervals.icu · hoy' : 'Datos de ejemplo · configura Intervals.icu'}</div>
           </div>
         </div>
         <div class="divider"></div>
         <div class="g2">
-          <div><div class="eyebrow">HRV</div><div class="num" style="font-size:22px;margin-top:4px">${hrv}<span class="mono muted" style="font-size:10px;margin-left:2px">ms</span></div><div class="mono" style="font-size:10px;color:var(--c-good);margin-top:2px">↑ +4 vs media</div></div>
-          <div><div class="eyebrow">Sueño</div><div class="num" style="font-size:22px;margin-top:4px">${sh}<span class="mono muted" style="font-size:10px">h</span> ${sm}<span class="mono muted" style="font-size:10px">m</span></div><div class="mono muted" style="font-size:10px;margin-top:2px">profundo ${ph}h ${pm}m</div></div>
+          <div><div class="eyebrow">HRV</div><div class="num" style="font-size:22px;margin-top:4px">${hrv}<span class="mono muted" style="font-size:10px;margin-left:2px">ms</span></div>${rhr?`<div class="mono muted" style="font-size:10px;margin-top:2px">FC reposo ${rhr} bpm</div>`:'<div class="mono" style="font-size:10px;color:var(--c-good);margin-top:2px">↑ +4 vs media</div>'}</div>
+          <div><div class="eyebrow">Sueño</div><div class="num" style="font-size:22px;margin-top:4px">${sh}<span class="mono muted" style="font-size:10px">h</span> ${sm}<span class="mono muted" style="font-size:10px">m</span></div>${sleepScore?`<div class="mono" style="font-size:10px;color:${sleepScore>=80?'var(--c-good)':'var(--c-warn)'};margin-top:2px">score ${sleepScore}</div>`:'<div class="mono muted" style="font-size:10px;margin-top:2px">puntuación sueño</div>'}</div>
         </div>`;
       })()}
     </div>
@@ -849,7 +809,7 @@ home: () => {
       </div>
     </div>
 
-    <div class="sec"><h2>Última sesión</h2>${stravaConnected()?`<span class="pill good">${ico('check',11)}Strava</span>`:`<button class="card-link" onclick="S.sheet='ajustes';S.ajErr=null;S.ajMsg=null;render()">Conectar Strava ${ico('chevron',13)}</button>`}</div>
+    <div class="sec"><h2>Última sesión</h2>${intervalsConnected()?`<span class="pill good">${ico('check',11)}Intervals.icu</span>`:`<button class="card-link" onclick="S.sheet='ajustes';S.ajErr=null;S.ajMsg=null;render()">Conectar Intervals.icu ${ico('chevron',13)}</button>`}</div>
     ${(() => {
       const act = S.liveData.lastActivity;
       if (act) return `
@@ -1158,7 +1118,7 @@ progreso: () => {
         ${sparkline(S.liveData.tssChart||TSS_WEEKS,'var(--c-accent)')}
         <div class="row" style="justify-content:space-between;margin-top:4px">
           <span class="mono muted" style="font-size:10px">sem −5</span>
-          <span class="num" style="font-size:10px;color:var(--c-accent)">${(S.liveData.tssChart||TSS_WEEKS).at(-1)} TSS esta sem${stravaConnected()?'':' (ejemplo)'}</span>
+          <span class="num" style="font-size:10px;color:var(--c-accent)">${(S.liveData.tssChart||TSS_WEEKS).at(-1)} TSS esta sem${intervalsConnected()?'':' (ejemplo)'}</span>
         </div>
       </div>
     </div>`}
@@ -1294,7 +1254,7 @@ const SHEET_SUMMARY = () => {
     <div class="handle"></div>
     <div class="row" style="justify-content:space-between;margin-bottom:16px">
       <div>
-        <div class="eyebrow">VIE 9 · 18:42 · Strava</div>
+        <div class="eyebrow">VIE 9 · 18:42 · Intervals.icu</div>
         <div class="title-md" style="margin-top:4px">Garabitas · vuelta larga</div>
       </div>
       <button onclick="S.sheet=null;render()" style="color:var(--c-text-muted)">${ico('back',16)}</button>
@@ -1337,8 +1297,7 @@ const SHEET_SUMMARY = () => {
 // ── Sheet: Ajustes ─────────────────────────────────────────
 const SHEET_AJUSTES = () => {
   const cfg = CFG.get();
-  const tkns = TKNS.get();
-  const sc = stravaConnected(), wc = withingsConnected();
+  const ic = intervalsConnected(), wc = withingsConnected();
   return `
   <div class="sheet-bd" onclick="S.sheet=null;render()"></div>
   <div class="sheet" style="max-height:92dvh;overflow-y:auto;padding-bottom:44px">
@@ -1351,48 +1310,31 @@ const SHEET_AJUSTES = () => {
     ${S.ajMsg?`<div class="card" style="background:rgba(74,222,128,.1);border-color:var(--c-good);margin-bottom:12px"><div style="font-size:13.5px;color:var(--c-good)">${S.ajMsg}</div></div>`:''}
     ${S.ajErr?`<div class="card" style="background:rgba(239,74,74,.1);border-color:var(--c-bad);margin-bottom:12px"><div style="font-size:13.5px;color:var(--c-bad)">${S.ajErr}</div></div>`:''}
 
-    <!-- ── Strava ── -->
-    <div class="eyebrow" style="margin-bottom:10px">Strava</div>
-    ${sc ? `
-    <div class="card" style="margin-bottom:16px">
-      <div class="row" style="justify-content:space-between">
-        <div class="row" style="gap:10px">
-          <div style="width:34px;height:34px;border-radius:50%;background:#fc4c02;display:grid;place-items:center">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
-          </div>
-          <div>
-            <div class="title-sm" style="font-size:14px">${tkns.strava_name || 'Strava'}</div>
-            <div class="mono" style="font-size:10px;color:var(--c-good);margin-top:2px">● Conectado</div>
-          </div>
-        </div>
-        <button class="btn btn-ghost btn-sm" onclick="stravaDisconnect()">Desconectar</button>
-      </div>
-    </div>` : `
+    <!-- ── Intervals.icu ── -->
+    <div class="eyebrow" style="margin-bottom:10px">Intervals.icu</div>
     <div class="card" style="margin-bottom:16px">
       <div style="font-size:12.5px;color:var(--c-text-muted);margin-bottom:12px;line-height:1.55">
-        1. Ve a <strong>strava.com/settings/api</strong> y crea una app.<br>
-        2. En <strong>"Authorization Callback Domain"</strong> pon:<br>
-        <span style="font-family:var(--f-m);font-size:11px;color:var(--c-accent);word-break:break-all">dmasegoso.github.io</span>
+        Hub central: recibe datos de Suunto (HRV, sueño) y Garmin/Strava (actividades, TSS), y envía entrenos planificados a Garmin Connect.<br><br>
+        Ve a <strong>intervals.icu → Settings → API Key</strong> y cópiala aquí.<br>
+        Tu Athlete ID aparece en la URL: <span style="font-family:var(--f-m);font-size:11px;color:var(--c-accent)">intervals.icu/athlete/<strong>i12345</strong>/…</span>
       </div>
       <div class="col" style="gap:9px">
         <div>
-          <div class="eyebrow" style="margin-bottom:5px">Client ID</div>
-          <input id="s-id" class="input" type="text" inputmode="numeric" placeholder="12345"
-            value="${cfg.strava_id||''}" oninput="CFG.set({strava_id:this.value.trim()})">
+          <div class="eyebrow" style="margin-bottom:5px">API Key</div>
+          <input class="input" type="password" placeholder="sk-…"
+            value="${cfg.intervals_key||''}" oninput="CFG.set({intervals_key:this.value.trim()})">
         </div>
         <div>
-          <div class="eyebrow" style="margin-bottom:5px">Client Secret</div>
-          <input id="s-sec" class="input" type="password" placeholder="abc123def456…"
-            value="${cfg.strava_secret||''}" oninput="CFG.set({strava_secret:this.value.trim()})">
+          <div class="eyebrow" style="margin-bottom:5px">Athlete ID</div>
+          <input class="input" type="text" placeholder="i12345"
+            value="${cfg.intervals_athlete_id||''}" oninput="CFG.set({intervals_athlete_id:this.value.trim()})">
         </div>
-        <button class="btn btn-block" style="background:#fc4c02;color:#fff;margin-top:4px" onclick="stravaConnect()">
-          Conectar con Strava
-        </button>
+        ${ic ? `<div class="mono" style="font-size:10px;color:var(--c-good);margin-top:2px">● Conectado</div>` : ''}
       </div>
-    </div>`}
+    </div>
 
     <!-- ── Withings ── -->
-    <div class="eyebrow" style="margin-bottom:10px">Withings</div>
+    <div class="eyebrow" style="margin-bottom:10px">Withings · peso y composición corporal</div>
     ${wc ? `
     <div class="card" style="margin-bottom:16px">
       <div class="row" style="justify-content:space-between">
@@ -1428,55 +1370,9 @@ const SHEET_AJUSTES = () => {
       </div>
     </div>`}
 
-    <!-- ── Intervals.icu ── -->
-    <div class="eyebrow" style="margin-bottom:10px">Intervals.icu → Garmin Connect</div>
-    <div class="card" style="margin-bottom:16px">
-      <div style="font-size:12.5px;color:var(--c-text-muted);margin-bottom:12px;line-height:1.55">
-        1. Crea cuenta gratuita en <strong>intervals.icu</strong> y conecta tu Garmin.<br>
-        2. En tu perfil ve a <strong>Settings → API Key</strong> y cópiala aquí.<br>
-        3. Tu Athlete ID está en la URL: intervals.icu/athlete/<strong>i12345</strong>/…
-      </div>
-      <div class="col" style="gap:9px">
-        <div>
-          <div class="eyebrow" style="margin-bottom:5px">API Key</div>
-          <input class="input" type="password" placeholder="sk-…"
-            value="${cfg.intervals_key||''}" oninput="CFG.set({intervals_key:this.value.trim()})">
-        </div>
-        <div>
-          <div class="eyebrow" style="margin-bottom:5px">Athlete ID</div>
-          <input class="input" type="text" placeholder="i12345"
-            value="${cfg.intervals_athlete_id||''}" oninput="CFG.set({intervals_athlete_id:this.value.trim()})">
-        </div>
-        ${intervalsConnected() ? `
-        <button class="btn btn-block" style="background:var(--c-accent);color:#fff;margin-top:4px" onclick="intervalsSend()">
-          ${ico('bike',14)} Enviar entreno de hoy
-        </button>` : ''}
-      </div>
-    </div>
-
-    <!-- ── Claude API ── -->
-    <div class="eyebrow" style="margin-bottom:10px">Claude API · lectura de capturas Suunto</div>
-    <div class="card" style="margin-bottom:16px">
-      <div style="font-size:12.5px;color:var(--c-text-muted);margin-bottom:10px;line-height:1.55">
-        Necesaria para que la IA extraiga HRV, Recursos y Sueño de tus capturas de Suunto.<br>
-        Obtén tu key en <strong>console.anthropic.com</strong>.
-      </div>
-      <div class="eyebrow" style="margin-bottom:5px">API Key</div>
-      <input class="input" type="password" placeholder="sk-ant-…"
-        value="${cfg.claude_key||''}" oninput="CFG.set({claude_key:this.value.trim()})">
-    </div>
-
-    <!-- ── FTP ── -->
-    <div class="eyebrow" style="margin-bottom:10px">Ciclismo</div>
-    <div class="card" style="margin-bottom:16px">
-      <div class="eyebrow" style="margin-bottom:6px">FTP (W) — para calcular TSS desde Strava</div>
-      <input class="input" type="number" placeholder="200" value="${cfg.ftp||''}"
-        oninput="CFG.set({ftp:parseInt(this.value)||200})">
-    </div>
-
     <!-- ── Acciones ── -->
-    ${(sc || wc) ? `
-    <button class="btn btn-ghost btn-block" onclick="DCACHE.clear();loadLiveData().then(()=>{render();S.ajMsg='Datos actualizados ✓';renderSheet()})">
+    ${(ic || wc) ? `
+    <button class="btn btn-ghost btn-block" onclick="DCACHE.clear();loadLiveData().then(()=>{S.ajMsg='Datos actualizados ✓';render();renderSheet()})">
       ${ico('activity',14)} Actualizar datos ahora
     </button>` : ''}
   </div>`;
@@ -1566,11 +1462,12 @@ function sendChat(text) {
     const t = val.toLowerCase();
 
     // Datos reales (con fallback)
-    const su  = S.liveData.suunto;
-    const hrv = su?.hrv ?? 62;
-    const rec = su?.recursos ?? 94;
-    const sh  = su?.sueno_h ?? 7, sm = su?.sueno_m ?? 20;
-    const ph  = su?.profundo_h ?? 1;
+    const w   = S.liveData.wellness;
+    const hrv = w?.hrv ?? 62;
+    const rec = w?.sleepScore ?? 94;
+    const sh  = w?.sleepSecs ? Math.floor(w.sleepSecs/3600) : 7;
+    const sm  = w?.sleepSecs ? Math.floor((w.sleepSecs%3600)/60) : 20;
+    const ph  = 1; // deep sleep no disponible en Intervals.icu
     const tss = S.liveData.weeklyTSS ?? 312;
     const km  = S.liveData.weeklyKm ?? 0;
     const act = S.liveData.lastActivity;
@@ -1582,7 +1479,7 @@ function sendChat(text) {
     if(t.includes('garabitas'))
       reply = act
         ? `Tu última sesión fue "${act.name}" — ${act.duration}, ${act.distance} km${act.tss ? `, TSS ${act.tss}` : ''}${act.hr ? `, FC media ${act.hr} bpm` : ''}. Para la próxima vuelta mantén FC entre 130 y 145 bpm, cadencia 87–92 rpm.`
-        : 'Para Garabitas mantén FC entre 130 y 145 bpm, ritmo conversacional y cadencia ≥85 rpm. Conecta Strava para ver tus datos de la última vuelta.';
+        : 'Para Garabitas mantén FC entre 130 y 145 bpm, ritmo conversacional y cadencia ≥85 rpm. Conecta Intervals.icu para ver tus datos de la última vuelta.';
     else if(t.includes('hrv'))
       reply = `Tu HRV hoy es ${hrv}ms con Recursos al ${rec}%. ${rec >= 85 ? 'Estás en plena forma — puedes entrenar con plena intensidad.' : rec >= 65 ? 'Buena recuperación. Entrena con normalidad pero sin forzar.' : 'Cuerpo pidiendo descanso. Considera bajar intensidad o hacer Z1 suave.'}`;
     else if(t.includes('tss'))
@@ -1646,24 +1543,29 @@ function render() {
 // ── Live data loader ────────────────────────────────────────
 async function loadLiveData() {
   const jobs = [];
-  if(stravaConnected()) {
+  if (intervalsConnected()) {
     jobs.push(
-      loadStravaData().then(d => {
-        if(!d.activities?.length) return;
-        // Última actividad de ciclismo
-        const lastRide = d.activities.find(a => ['Ride','VirtualRide','EBikeRide'].includes(a.type)) || d.activities[0];
-        S.liveData.lastActivity = fmtActivity(lastRide);
-        // TSS semanal
+      loadIntervalsActivities().then(acts => {
+        if (!acts?.length) return;
+        const rideTypes = ['Ride','VirtualRide','EBikeRide','Cycling'];
+        const lastRide = acts.find(a => rideTypes.includes(a.type)) || acts[0];
+        S.liveData.lastActivity = fmtIntervalsActivity(lastRide);
         const weekAgo = Date.now() - 7*86400000;
-        const week = d.activities.filter(a => new Date(a.start_date_local).getTime() > weekAgo);
-        S.liveData.weeklyTSS = week.reduce((s,a) => s + (calcTSS(a)||0), 0);
-        S.liveData.weeklyRides = week.filter(a => a.type==='Ride').length;
-        S.liveData.weeklyKm = +(week.reduce((s,a) => s + a.distance, 0)/1000).toFixed(1);
-        S.liveData.tssChart = calcWeeklyTSS(d.activities);
+        const week = acts.filter(a => new Date(a.start_date_local).getTime() > weekAgo);
+        S.liveData.weeklyTSS = Math.round(week.reduce((s,a) => s + (a.icu_training_load||0), 0));
+        S.liveData.weeklyRides = week.filter(a => rideTypes.includes(a.type)).length;
+        S.liveData.weeklyKm = +(week.reduce((s,a) => s + (a.distance||0), 0)/1000).toFixed(1);
+        S.liveData.tssChart = calcWeeklyTSSFromIntervals(acts);
+      }).catch(()=>{})
+    );
+    jobs.push(
+      loadIntervalsWellness().then(w => {
+        if (!w) return;
+        S.liveData.wellness = w;
       }).catch(()=>{})
     );
   }
-  if(withingsConnected()) {
+  if (withingsConnected()) {
     jobs.push(
       loadWithingsData().then(d => {
         S.liveData.body = parseWithings(d.measures);
@@ -1673,88 +1575,16 @@ async function loadLiveData() {
   await Promise.all(jobs);
 }
 
-// ── Suunto via Claude Vision ───────────────────────────────
-function loadSuuntoCache() {
-  try {
-    const v = JSON.parse(localStorage.getItem('z2_suunto'));
-    if (v) S.liveData.suunto = v;
-  } catch(e) {}
-}
-
-async function parseSuuntoScreenshot(base64, mediaType) {
-  const key = CFG.get().claude_key;
-  if (!key) throw new Error('Añade tu API key de Claude en Ajustes → Claude API.');
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 256,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-          { type: 'text', text: 'Eres un extractor de datos de capturas de pantalla de Suunto. Extrae exactamente estos valores si aparecen: HRV nocturno (ms), Recursos/Readiness (%), sueño total (h y min) y sueño profundo (h y min). Responde ÚNICAMENTE con JSON válido sin explicación:\n{"hrv":62,"recursos":94,"sueno_h":7,"sueno_m":20,"profundo_h":1,"profundo_m":40}\nSi un valor no aparece en la imagen usa null.' }
-        ]
-      }]
-    })
-  });
-  if (!r.ok) throw new Error('Claude API ' + r.status);
-  const d = await r.json();
-  const text = d.content?.[0]?.text || '';
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error('No se pudo extraer datos de la imagen.');
-  return JSON.parse(match[0]);
-}
-
-async function handleSuuntoUpload(input) {
-  if (!input.files?.length) return;
-  const file = input.files[0];
-  S.suuntoLoading = true; render();
-  try {
-    const base64 = await new Promise((res, rej) => {
-      const reader = new FileReader();
-      reader.onload = e => res(e.target.result.split(',')[1]);
-      reader.onerror = rej;
-      reader.readAsDataURL(file);
-    });
-    const data = await parseSuuntoScreenshot(base64, file.type);
-    data.ts = Date.now();
-    localStorage.setItem('z2_suunto', JSON.stringify(data));
-    S.liveData.suunto = data;
-    S.suuntoLoading = false;
-    render();
-  } catch(e) {
-    S.suuntoLoading = false;
-    S.suuntoError = e.message;
-    render();
-    setTimeout(() => { S.suuntoError = null; render(); }, 4000);
-  }
-  input.value = '';
-}
-
-function fmtSuuntoAge(ts) {
-  if (!ts) return '';
-  const m = Math.round((Date.now() - ts) / 60000);
-  if (m < 2) return 'ahora mismo';
-  if (m < 60) return `hace ${m} min`;
-  const h = Math.floor(m / 60);
-  return `hace ${h}h`;
-}
 
 // ── Background sync ────────────────────────────────────────
 let _syncing = false;
 
 async function silentRefresh() {
-  if (_syncing || !stravaConnected()) return;
+  if (_syncing || !intervalsConnected()) return;
   _syncing = true;
   showSyncDot(true);
-  DCACHE.clear('strava');
+  DCACHE.clear('intervals_acts');
+  DCACHE.clear('intervals_well');
   try { await loadLiveData(); render(); } catch(e) {}
   _syncing = false;
   showSyncDot(false);
@@ -1779,22 +1609,16 @@ setInterval(() => {
 async function initApp() {
   const p = new URLSearchParams(location.search);
   const code = p.get('code'), state = p.get('state');
-  if(code && (state==='strava' || state==='withings')) {
+  if (code && state === 'withings') {
     history.replaceState({}, '', location.pathname);
     S.sheet = 'ajustes';
     try {
-      if(state==='strava') {
-        await stravaExchange(code);
-        S.ajMsg = '✓ Strava conectado correctamente.';
-      } else {
-        await withingsExchange(code);
-        S.ajMsg = '✓ Withings conectado correctamente.';
-      }
+      await withingsExchange(code);
+      S.ajMsg = '✓ Withings conectado correctamente.';
     } catch(e) {
       S.ajErr = 'Error al conectar: ' + e.message;
     }
   }
-  loadSuuntoCache();
   loadSeriesState();
   S.intervalsSent = localStorage.getItem('z2_intervals_sent') === new Date().toISOString().slice(0,10);
   await loadLiveData();
