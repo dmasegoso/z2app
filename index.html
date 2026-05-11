@@ -425,6 +425,28 @@ const REDIRECT_URI = 'https://dmasegoso.github.io/z2app/';
 const redirectUri = () => REDIRECT_URI;
 
 // ── Intervals.icu — datos ──────────────────────────────────
+async function intervalsTest() {
+  const cfg = CFG.get();
+  S.ajErr = null; S.ajMsg = null;
+  render(); renderSheet();
+  try {
+    const auth = btoa(`API:${cfg.intervals_key.trim()}`);
+    const resp = await fetch(`${intervalsApiBase()}/athlete/${cfg.intervals_athlete_id}`, {
+      headers: { 'Authorization': `Basic ${auth}` }
+    });
+    const body = await resp.text();
+    if (resp.ok) {
+      const d = JSON.parse(body);
+      S.ajMsg = `✓ Conectado — ${d.name || d.email || 'atleta ' + cfg.intervals_athlete_id}`;
+    } else {
+      S.ajErr = `GET /athlete → ${resp.status}: ${body}`;
+    }
+  } catch(e) {
+    S.ajErr = `Error de red: ${e.message}`;
+  }
+  render(); renderSheet();
+}
+
 async function intervalsGet(path) {
   const cfg = CFG.get();
   if (!cfg.intervals_key || !cfg.intervals_athlete_id) throw new Error('not_configured');
@@ -1333,13 +1355,10 @@ const SHEET_AJUSTES = () => {
           <input class="input" type="text" placeholder="i12345"
             value="${cfg.intervals_athlete_id||''}" oninput="CFG.set({intervals_athlete_id:this.value.trim()})">
         </div>
-        ${ic ? `<div class="mono" style="font-size:10px;color:var(--c-good);margin-top:2px">● Configurado</div>` : ''}
-        <div style="margin-top:10px">
-          <div class="eyebrow" style="margin-bottom:5px">URL Proxy (opcional)</div>
-          <div style="font-size:11.5px;color:var(--c-text-muted);margin-bottom:6px;line-height:1.5">Si la API da error 403, despliega el worker de <code style="font-family:var(--f-m)">proxy-worker.js</code> en Cloudflare y pega aquí su URL.</div>
-          <input class="input" type="url" placeholder="https://z2proxy.tuusuario.workers.dev"
-            value="${cfg.intervals_proxy||''}" oninput="CFG.set({intervals_proxy:this.value.trim()})">
-        </div>
+        ${ic ? `
+        <button class="btn btn-ghost btn-block" style="margin-top:6px" onclick="intervalsTest()">
+          Probar conexión
+        </button>` : ''}
       </div>
     </div>
 
