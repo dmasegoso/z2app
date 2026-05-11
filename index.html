@@ -373,7 +373,8 @@ const DCACHE = {
 };
 
 // ── Intervals.icu ──────────────────────────────────────────
-const INTERVALS_API = 'https://intervals.icu/api/v1';
+const INTERVALS_API_DIRECT = 'https://intervals.icu/api/v1';
+const intervalsApiBase = () => (CFG.get().intervals_proxy?.replace(/\/$/, '') || INTERVALS_API_DIRECT);
 
 const intervalsConnected = () => { const c = CFG.get(); return !!(c.intervals_key && c.intervals_athlete_id); };
 
@@ -401,7 +402,7 @@ async function intervalsSend() {
   };
   const auth = btoa(`API:${cfg.intervals_key}`);
   try {
-    const resp = await fetch(`${INTERVALS_API}/athlete/${cfg.intervals_athlete_id}/events`, {
+    const resp = await fetch(`${intervalsApiBase()}/athlete/${cfg.intervals_athlete_id}/events`, {
       method: 'POST',
       headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -428,7 +429,7 @@ async function intervalsGet(path) {
   const cfg = CFG.get();
   if (!cfg.intervals_key || !cfg.intervals_athlete_id) throw new Error('not_configured');
   const auth = btoa(`API:${cfg.intervals_key.trim()}`);
-  const resp = await fetch(`${INTERVALS_API}${path}`, {
+  const resp = await fetch(`${intervalsApiBase()}${path}`, {
     headers: { 'Authorization': `Basic ${auth}` }
   });
   if (!resp.ok) {
@@ -1332,7 +1333,13 @@ const SHEET_AJUSTES = () => {
           <input class="input" type="text" placeholder="i12345"
             value="${cfg.intervals_athlete_id||''}" oninput="CFG.set({intervals_athlete_id:this.value.trim()})">
         </div>
-        ${ic ? `<div class="mono" style="font-size:10px;color:var(--c-good);margin-top:2px">● Conectado</div>` : ''}
+        ${ic ? `<div class="mono" style="font-size:10px;color:var(--c-good);margin-top:2px">● Configurado</div>` : ''}
+        <div style="margin-top:10px">
+          <div class="eyebrow" style="margin-bottom:5px">URL Proxy (opcional)</div>
+          <div style="font-size:11.5px;color:var(--c-text-muted);margin-bottom:6px;line-height:1.5">Si la API da error 403, despliega el worker de <code style="font-family:var(--f-m)">proxy-worker.js</code> en Cloudflare y pega aquí su URL.</div>
+          <input class="input" type="url" placeholder="https://z2proxy.tuusuario.workers.dev"
+            value="${cfg.intervals_proxy||''}" oninput="CFG.set({intervals_proxy:this.value.trim()})">
+        </div>
       </div>
     </div>
 
