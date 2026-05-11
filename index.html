@@ -301,6 +301,204 @@ const EXERCISES = [
   },
 ];
 
+// ── Storage helpers ────────────────────────────────────────
+const CFG = {
+  get: () => { try { return JSON.parse(localStorage.getItem('z2_cfg') || '{}'); } catch(e) { return {}; } },
+  set: (d) => localStorage.setItem('z2_cfg', JSON.stringify({...CFG.get(), ...d})),
+};
+const TKNS = {
+  get: () => { try { return JSON.parse(localStorage.getItem('z2_tkns') || '{}'); } catch(e) { return {}; } },
+  set: (d) => localStorage.setItem('z2_tkns', JSON.stringify({...TKNS.get(), ...d})),
+  del: (prefix) => {
+    const t = TKNS.get();
+    Object.keys(t).filter(k => k.startsWith(prefix)).forEach(k => delete t[k]);
+    localStorage.setItem('z2_tkns', JSON.stringify(t));
+  },
+};
+const DCACHE = {
+  get: (k) => { try { const v = JSON.parse(localStorage.getItem('z2_dc_' + k)); return (v && Date.now() - v.ts < 3600000) ? v.d : null; } catch(e) { return null; } },
+  set: (k, d) => localStorage.setItem('z2_dc_' + k, JSON.stringify({ts: Date.now(), d})),
+  clear: () => Object.keys(localStorage).filter(k => k.startsWith('z2_dc_')).forEach(k => localStorage.removeItem(k)),
+};
+
+// ── Strava ─────────────────────────────────────────────────
+const STRAVA_AUTH  = 'https://www.strava.com/oauth/authorize';
+const STRAVA_TOKEN = 'https://www.strava.com/oauth/token';
+const STRAVA_API   = 'https://www.strava.com/api/v3';
+
+const stravaConnected = () => !!TKNS.get().strava_access;
+const redirectUri = () => location.origin + location.pathname;
+
+function stravaConnect() {
+  const id = document.getElementById('s-id')?.value.trim() || CFG.get().strava_id;
+  const sec = document.getElementById('s-sec')?.value.trim() || CFG.get().strava_secret;
+  if (id) CFG.set({strava_id: id});
+  if (sec) CFG.set({strava_secret: sec});
+  if (!CFG.get().strava_id || !CFG.get().strava_secret) {
+    S.ajErr = 'Rellena Client ID y Client Secret de Strava.'; renderSheet(); return;
+  }
+  location.href = `${STRAVA_AUTH}?client_id=${CFG.get().strava_id}&redirect_uri=${encodeURIComponent(redirectUri())}&response_type=code&scope=read,activity:read_all&state=strava`;
+}
+
+function stravaDisconnect() { TKNS.del('strava_'); DCACHE.clear(); S.liveData = {}; S.sheet = 'ajustes'; render(); }
+
+async function stravaExchange(code) {
+  const cfg = CFG.get();
+  const r = await fetch(STRAVA_TOKEN, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({client_id: cfg.strava_id, client_secret: cfg.strava_secret, code, grant_type: 'authorization_code'}),
+  });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const d = await r.json();
+  if (!d.access_token) throw new Error(d.message || 'Sin token');
+  TKNS.set({strava_access: d.access_token, strava_refresh: d.refresh_token, strava_expires: d.expires_at,
+    strava_name: `${d.athlete?.firstname||''} ${d.athlete?.lastname||''}`.trim()});
+}
+
+async function stravaRefresh() {
+  const cfg = CFG.get(), t = TKNS.get();
+  if (!t.strava_refresh) { TKNS.del('strava_'); return false; }
+  if (t.strava_expires > Date.now() / 1000 + 60) return true;
+  try {
+    const r = await fetch(STRAVA_TOKEN, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({client_id: cfg.strava_id, client_secret: cfg.strava_secret, refresh_token: t.strava_refresh, grant_type: 'refresh_token'}),
+    });
+    const d = await r.json();
+    if (!d.access_token) { TKNS.del('strava_'); return false; }
+    TKNS.set({strava_access: d.access_token, strava_refresh: d.refresh_token, strava_expires: d.expires_at});
+    return true;
+  } catch(e) { return false; }
+}
+
+async function stravaGet(path) {
+  if (!await stravaRefresh()) throw new Error('not_connected');
+  const r = await fetch(STRAVA_API + path, {headers: {Authorization: 'Bearer ' + TKNS.get().strava_access}});
+  if (!r.ok) throw new Error('Strava ' + r.status);
+  return r.json();
+}
+
+function calcTSS(act) {
+  const ftp = parseInt(CFG.get().ftp) || 200;
+  const np = act.weighted_average_watts;
+  if (!np) return null;
+  const IF = np / ftp;
+  return Math.round((act.moving_time * np * IF) / (ftp * 3600) * 100);
+}
+
+function fmtActivity(act) {
+  const d = new Date(act.start_date_local);
+  const days = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+  const dateStr = `${days[d.getDay()]} ${d.getDate()} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  const mins = Math.round(act.moving_time / 60);
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return {
+    date: dateStr,
+    name: act.name,
+    duration: h > 0 ? `${h}h ${m}m` : `${mins}m`,
+    distance: (act.distance / 1000).toFixed(1),
+    tss: calcTSS(act),
+    hr: act.average_heartrate ? Math.round(act.average_heartrate) : null,
+    np: act.weighted_average_watts || null,
+    kcal: act.kilojoules ? Math.round(act.kilojoules * 4.184) : null,
+    type: act.type,
+  };
+}
+
+async function loadStravaData() {
+  const cached = DCACHE.get('strava');
+  if (cached) return cached;
+  const acts = await stravaGet('/athlete/activities?per_page=15');
+  const data = { activities: acts };
+  DCACHE.set('strava', data);
+  return data;
+}
+
+// ── Withings ───────────────────────────────────────────────
+const WITHINGS_AUTH  = 'https://account.withings.com/oauth2_user/authorize2';
+const WITHINGS_TOKEN = 'https://wbsapi.withings.net/v2/oauth2';
+const WITHINGS_API   = 'https://wbsapi.withings.net';
+
+const withingsConnected = () => !!TKNS.get().withings_access;
+
+function withingsConnect() {
+  const id = document.getElementById('w-id')?.value.trim() || CFG.get().withings_id;
+  const sec = document.getElementById('w-sec')?.value.trim() || CFG.get().withings_secret;
+  if (id) CFG.set({withings_id: id});
+  if (sec) CFG.set({withings_secret: sec});
+  if (!CFG.get().withings_id || !CFG.get().withings_secret) {
+    S.ajErr = 'Rellena Client ID y Client Secret de Withings.'; renderSheet(); return;
+  }
+  const scope = encodeURIComponent('user.info,user.metrics,user.sleepevents');
+  location.href = `${WITHINGS_AUTH}?client_id=${CFG.get().withings_id}&redirect_uri=${encodeURIComponent(redirectUri())}&response_type=code&scope=${scope}&state=withings`;
+}
+
+function withingsDisconnect() { TKNS.del('withings_'); DCACHE.clear(); S.liveData = {}; S.sheet = 'ajustes'; render(); }
+
+async function withingsExchange(code) {
+  const cfg = CFG.get();
+  const body = new URLSearchParams({action:'requesttoken', client_id: cfg.withings_id, client_secret: cfg.withings_secret,
+    code, grant_type: 'authorization_code', redirect_uri: redirectUri()});
+  const r = await fetch(WITHINGS_TOKEN, {method:'POST', body});
+  const d = await r.json();
+  if (!d.body?.access_token) throw new Error(d.error || 'Sin token');
+  TKNS.set({withings_access: d.body.access_token, withings_refresh: d.body.refresh_token,
+    withings_expires: Date.now() / 1000 + d.body.expires_in});
+}
+
+async function withingsRefresh() {
+  const cfg = CFG.get(), t = TKNS.get();
+  if (!t.withings_refresh) { TKNS.del('withings_'); return false; }
+  if (t.withings_expires > Date.now() / 1000 + 60) return true;
+  try {
+    const body = new URLSearchParams({action:'requesttoken', client_id: cfg.withings_id, client_secret: cfg.withings_secret,
+      refresh_token: t.withings_refresh, grant_type: 'refresh_token'});
+    const r = await fetch(WITHINGS_TOKEN, {method:'POST', body});
+    const d = await r.json();
+    if (!d.body?.access_token) { TKNS.del('withings_'); return false; }
+    TKNS.set({withings_access: d.body.access_token, withings_refresh: d.body.refresh_token,
+      withings_expires: Date.now() / 1000 + d.body.expires_in});
+    return true;
+  } catch(e) { return false; }
+}
+
+async function withingsGet(path, params = {}) {
+  if (!await withingsRefresh()) throw new Error('not_connected');
+  const url = new URL(WITHINGS_API + path);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const r = await fetch(url, {headers: {Authorization: 'Bearer ' + TKNS.get().withings_access}});
+  if (!r.ok) throw new Error('Withings ' + r.status);
+  return r.json();
+}
+
+function parseWithings(groups) {
+  const sorted = [...groups].sort((a, b) => b.date - a.date);
+  if (!sorted.length) return {};
+  const latest = sorted[0];
+  const res = {};
+  for (const m of latest.measures) {
+    const v = m.value * Math.pow(10, m.unit);
+    if (m.type === 1) res.weight = v;
+    if (m.type === 6) res.fatPct = v;
+    if (m.type === 76) res.muscle = v;
+  }
+  // sparkline: last 8 measurements with weight
+  res.weightHistory = sorted.slice(0, 8).reverse().map(g => {
+    const w = g.measures.find(m => m.type === 1);
+    return w ? +(w.value * Math.pow(10, w.unit)).toFixed(1) : null;
+  }).filter(Boolean);
+  return res;
+}
+
+async function loadWithingsData() {
+  const cached = DCACHE.get('withings');
+  if (cached) return cached;
+  const meas = await withingsGet('/measure', {action: 'getmeas', meastype: '1,6,76'});
+  const data = {measures: meas.body?.measuregrps || []};
+  DCACHE.set('withings', data);
+  return data;
+}
+
 // ── Recipe images (Unsplash IDs) ───────────────────────────
 const RECIPE_IMGS = [
   'photo-1517673400267-0251440c45dc', // Porridge
@@ -340,11 +538,14 @@ let S = {
     {from:'ai', text:'Buenas Dani. HRV 62ms y Recursos 94% — estás en plena forma. Doble sesión hoy: Z2 de 90 min + tren superior. ¿Todo listo?', t:'08:42'},
   ],
   chatThinking: false,
-  sheet: null,          // 'summary' | 'exercise'
+  sheet: null,          // 'summary' | 'exercise' | 'ajustes'
   exerciseIdx: null,
   exerciseVideo: false,
   seriesState: initSeriesState(),
   sensaciones: [],
+  liveData: {},         // datos reales de Strava / Withings
+  ajErr: null,          // error en ajustes
+  ajMsg: null,          // mensaje OK en ajustes
 };
 
 // ── Icons ──────────────────────────────────────────────────
@@ -448,7 +649,7 @@ home: () => {
       <h1>Hola, <span style="color:var(--c-accent)">Dani</span>.</h1>
       <div class="muted" style="margin-top:5px;font-size:13px;line-height:1.4">Doble sesión hoy. Recuperación excelente.</div>
     </div>
-    <button class="avatar" onclick="toggleTheme()">D</button>
+    <button class="avatar" onclick="S.sheet='ajustes';S.ajErr=null;S.ajMsg=null;render()" title="Ajustes">${ico('settings',15)}</button>
   </div>
   <div class="scroll"><div class="pad">
 
@@ -514,23 +715,44 @@ home: () => {
       </div>
     </div>
 
-    <div class="sec"><h2>Última sesión</h2><span class="pill good">${ico('check',11)}Strava</span></div>
-    <button onclick="S.sheet='summary';render()" style="width:100%;text-align:left">
-      <div class="card">
-        <div class="row" style="justify-content:space-between">
-          <div>
-            <div class="eyebrow">VIE 9 · 18:42</div>
-            <div class="title-sm" style="margin-top:4px">Garabitas · vuelta larga</div>
-            <div class="mono muted" style="font-size:11px;margin-top:3px">1h 32m · 42.8 km · TSS 84</div>
+    <div class="sec"><h2>Última sesión</h2>${stravaConnected()?`<span class="pill good">${ico('check',11)}Strava</span>`:`<button class="card-link" onclick="S.sheet='ajustes';S.ajErr=null;S.ajMsg=null;render()">Conectar Strava ${ico('chevron',13)}</button>`}</div>
+    ${(() => {
+      const act = S.liveData.lastActivity;
+      if (act) return `
+      <button onclick="S.sheet='summary';render()" style="width:100%;text-align:left">
+        <div class="card">
+          <div class="row" style="justify-content:space-between">
+            <div>
+              <div class="eyebrow">${act.date}</div>
+              <div class="title-sm" style="margin-top:4px">${act.name}</div>
+              <div class="mono muted" style="font-size:11px;margin-top:3px">${act.duration}${act.distance?` · ${act.distance} km`:''}${act.tss?` · TSS ${act.tss}`:''}</div>
+            </div>
+            <div class="row" style="gap:5px;align-items:center">
+              ${act.hr?`<div class="num" style="font-size:21px;color:var(--c-z2)">${act.hr}<span class="mono muted" style="font-size:9px;margin-left:1px">bpm</span></div>`:''}
+              ${ico('chevron',14)}
+            </div>
           </div>
-          <div class="row" style="gap:5px;align-items:center">
-            <div class="num" style="font-size:21px;color:var(--c-z2)">71<span class="mono muted" style="font-size:9px;margin-left:1px">%</span></div>
-            ${ico('chevron',14)}
-          </div>
+          ${act.np?`<div class="mono subtle" style="font-size:9.5px;margin-top:7px;letter-spacing:.04em">NP ${act.np}W${act.kcal?` · ${act.kcal} kcal`:''}</div>`:''}
         </div>
-        <div class="mono subtle" style="font-size:9.5px;margin-top:7px;letter-spacing:.04em">TIEMPO EN Z2 · OBJETIVO &gt;70%</div>
-      </div>
-    </button>
+      </button>`;
+      return `
+      <button onclick="S.sheet='summary';render()" style="width:100%;text-align:left">
+        <div class="card">
+          <div class="row" style="justify-content:space-between">
+            <div>
+              <div class="eyebrow">VIE 9 · 18:42</div>
+              <div class="title-sm" style="margin-top:4px">Garabitas · vuelta larga</div>
+              <div class="mono muted" style="font-size:11px;margin-top:3px">1h 32m · 42.8 km · TSS 84</div>
+            </div>
+            <div class="row" style="gap:5px;align-items:center">
+              <div class="num" style="font-size:21px;color:var(--c-z2)">71<span class="mono muted" style="font-size:9px;margin-left:1px">%</span></div>
+              ${ico('chevron',14)}
+            </div>
+          </div>
+          <div class="mono subtle" style="font-size:9.5px;margin-top:7px;letter-spacing:.04em">TIEMPO EN Z2 · OBJETIVO &gt;70%</div>
+        </div>
+      </button>`;
+    })()}
 
     <div class="sec"><h2>Hoy en la cocina</h2><button class="card-link" onclick="go('nutricion')">Ver todo ${ico('chevron',13)}</button></div>
     ${meals.map((m,i)=>`
@@ -712,16 +934,22 @@ progreso: () => {
     </div>
 
     ${S.progresoTab==='cuerpo'?`
+      ${!withingsConnected()?`<button onclick="S.sheet='ajustes';S.ajErr=null;S.ajMsg=null;render()" style="width:100%;text-align:left;margin-bottom:10px"><div style="border:1.5px dashed var(--c-border-strong);border-radius:var(--r-lg);padding:14px 16px;display:flex;align-items:center;gap:12px"><div style="width:36px;height:36px;border-radius:9px;background:#00c8f020;color:#00c8f0;display:grid;place-items:center;flex-shrink:0;font-weight:700;font-size:14px">W</div><div class="col grow" style="gap:2px"><div class="title-sm" style="font-size:14px">Conectar Withings</div><div class="muted" style="font-size:12px">Peso, grasa y músculo en tiempo real.</div></div>${ico('chevron',14)}</div></button>`:''}
       <div class="card">
         <div class="row" style="justify-content:space-between;align-items:flex-start">
-          <div><div class="eyebrow">Peso</div><div class="num" style="font-size:38px;line-height:1;margin-top:4px">76,2<span class="mono muted" style="font-size:13px;margin-left:3px">kg</span></div><div class="mono" style="font-size:10.5px;margin-top:5px;color:var(--c-good)">↓ −1,2 kg en 4 sem</div></div>
-          <div class="mono muted" style="font-size:10px;letter-spacing:.08em">SUUNTO</div>
+          ${(() => {
+            const b = S.liveData.body;
+            const kg = b?.weight ? b.weight.toFixed(1).replace('.',',') : '76,2';
+            const src = withingsConnected() ? 'Withings' : 'SUUNTO';
+            return `<div><div class="eyebrow">Peso</div><div class="num" style="font-size:38px;line-height:1;margin-top:4px">${kg}<span class="mono muted" style="font-size:13px;margin-left:3px">kg</span></div><div class="mono" style="font-size:10.5px;margin-top:5px;color:var(--c-good)">↓ −1,2 kg en 4 sem</div></div>
+            <div class="mono muted" style="font-size:10px;letter-spacing:.08em">${src}</div>`;
+          })()}
         </div>
-        <div style="margin-top:13px">${sparkline([77.4,77.2,77.0,76.8,76.6,76.5,76.3,76.2],'var(--c-accent)')}</div>
+        <div style="margin-top:13px">${sparkline(S.liveData.body?.weightHistory?.length ? S.liveData.body.weightHistory : [77.4,77.2,77.0,76.8,76.6,76.5,76.3,76.2],'var(--c-accent)')}</div>
       </div>
       <div class="g2" style="margin-top:10px">
-        <div class="card" style="padding:13px"><div class="eyebrow">% Grasa</div><div class="num" style="font-size:26px;margin-top:4px">14,2<span class="mono muted" style="font-size:10px;margin-left:2px">%</span></div><div class="mono" style="font-size:10px;margin-top:3px;color:var(--c-good)">↓ −0,6%</div></div>
-        <div class="card" style="padding:13px"><div class="eyebrow">Músculo</div><div class="num" style="font-size:26px;margin-top:4px">63,4<span class="mono muted" style="font-size:10px;margin-left:2px">kg</span></div><div class="mono" style="font-size:10px;margin-top:3px;color:var(--c-good)">↑ +0,4 kg</div></div>
+        <div class="card" style="padding:13px"><div class="eyebrow">% Grasa</div><div class="num" style="font-size:26px;margin-top:4px">${S.liveData.body?.fatPct ? S.liveData.body.fatPct.toFixed(1).replace('.',',') : '14,2'}<span class="mono muted" style="font-size:10px;margin-left:2px">%</span></div><div class="mono" style="font-size:10px;margin-top:3px;color:var(--c-good)">↓ −0,6%</div></div>
+        <div class="card" style="padding:13px"><div class="eyebrow">Músculo</div><div class="num" style="font-size:26px;margin-top:4px">${S.liveData.body?.muscle ? S.liveData.body.muscle.toFixed(1).replace('.',',') : '63,4'}<span class="mono muted" style="font-size:10px;margin-left:2px">kg</span></div><div class="mono" style="font-size:10px;margin-top:3px;color:var(--c-good)">↑ +0,4 kg</div></div>
       </div>
       <div class="card" style="margin-top:10px">
         <div class="row" style="justify-content:space-between;margin-bottom:8px">
@@ -952,6 +1180,115 @@ const SHEET_SUMMARY = () => {
   </div>`;
 };
 
+// ── Sheet: Ajustes ─────────────────────────────────────────
+const SHEET_AJUSTES = () => {
+  const cfg = CFG.get();
+  const tkns = TKNS.get();
+  const sc = stravaConnected(), wc = withingsConnected();
+  return `
+  <div class="sheet-bd" onclick="S.sheet=null;render()"></div>
+  <div class="sheet" style="max-height:92dvh;overflow-y:auto;padding-bottom:44px">
+    <div class="handle"></div>
+    <div class="row" style="justify-content:space-between;margin-bottom:18px">
+      <h2>Ajustes</h2>
+      <button onclick="toggleTheme()" style="color:var(--c-text-muted)">${ico('sun',15)}</button>
+    </div>
+
+    ${S.ajMsg?`<div class="card" style="background:rgba(74,222,128,.1);border-color:var(--c-good);margin-bottom:12px"><div style="font-size:13.5px;color:var(--c-good)">${S.ajMsg}</div></div>`:''}
+    ${S.ajErr?`<div class="card" style="background:rgba(239,74,74,.1);border-color:var(--c-bad);margin-bottom:12px"><div style="font-size:13.5px;color:var(--c-bad)">${S.ajErr}</div></div>`:''}
+
+    <!-- ── Strava ── -->
+    <div class="eyebrow" style="margin-bottom:10px">Strava</div>
+    ${sc ? `
+    <div class="card" style="margin-bottom:16px">
+      <div class="row" style="justify-content:space-between">
+        <div class="row" style="gap:10px">
+          <div style="width:34px;height:34px;border-radius:50%;background:#fc4c02;display:grid;place-items:center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+          </div>
+          <div>
+            <div class="title-sm" style="font-size:14px">${tkns.strava_name || 'Strava'}</div>
+            <div class="mono" style="font-size:10px;color:var(--c-good);margin-top:2px">● Conectado</div>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="stravaDisconnect()">Desconectar</button>
+      </div>
+    </div>` : `
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:12.5px;color:var(--c-text-muted);margin-bottom:12px;line-height:1.55">
+        1. Ve a <strong>strava.com/settings/api</strong> y crea una app.<br>
+        2. En "Authorization Callback Domain" pon: <span style="font-family:var(--f-m);font-size:11px;color:var(--c-accent)">${location.hostname}</span>
+      </div>
+      <div class="col" style="gap:9px">
+        <div>
+          <div class="eyebrow" style="margin-bottom:5px">Client ID</div>
+          <input id="s-id" class="input" type="text" inputmode="numeric" placeholder="12345"
+            value="${cfg.strava_id||''}" oninput="CFG.set({strava_id:this.value.trim()})">
+        </div>
+        <div>
+          <div class="eyebrow" style="margin-bottom:5px">Client Secret</div>
+          <input id="s-sec" class="input" type="password" placeholder="abc123def456…"
+            value="${cfg.strava_secret||''}" oninput="CFG.set({strava_secret:this.value.trim()})">
+        </div>
+        <button class="btn btn-block" style="background:#fc4c02;color:#fff;margin-top:4px" onclick="stravaConnect()">
+          Conectar con Strava
+        </button>
+      </div>
+    </div>`}
+
+    <!-- ── Withings ── -->
+    <div class="eyebrow" style="margin-bottom:10px">Withings</div>
+    ${wc ? `
+    <div class="card" style="margin-bottom:16px">
+      <div class="row" style="justify-content:space-between">
+        <div class="row" style="gap:10px">
+          <div style="width:34px;height:34px;border-radius:50%;background:#00b4d8;display:grid;place-items:center;font-weight:700;color:#fff;font-size:15px">W</div>
+          <div>
+            <div class="title-sm" style="font-size:14px">Withings</div>
+            <div class="mono" style="font-size:10px;color:var(--c-good);margin-top:2px">● Conectado</div>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="withingsDisconnect()">Desconectar</button>
+      </div>
+    </div>` : `
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:12.5px;color:var(--c-text-muted);margin-bottom:12px;line-height:1.55">
+        1. Ve a <strong>account.withings.com/partner/add_oauth2</strong>.<br>
+        2. En "Callback URI" pon exactamente: <span style="font-family:var(--f-m);font-size:11px;color:var(--c-accent)">${redirectUri()}</span>
+      </div>
+      <div class="col" style="gap:9px">
+        <div>
+          <div class="eyebrow" style="margin-bottom:5px">Client ID</div>
+          <input id="w-id" class="input" type="text" placeholder="abc123…"
+            value="${cfg.withings_id||''}" oninput="CFG.set({withings_id:this.value.trim()})">
+        </div>
+        <div>
+          <div class="eyebrow" style="margin-bottom:5px">Client Secret</div>
+          <input id="w-sec" class="input" type="password" placeholder="xyz789…"
+            value="${cfg.withings_secret||''}" oninput="CFG.set({withings_secret:this.value.trim()})">
+        </div>
+        <button class="btn btn-block" style="background:#00b4d8;color:#fff;margin-top:4px" onclick="withingsConnect()">
+          Conectar con Withings
+        </button>
+      </div>
+    </div>`}
+
+    <!-- ── FTP ── -->
+    <div class="eyebrow" style="margin-bottom:10px">Ciclismo</div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="eyebrow" style="margin-bottom:6px">FTP (W) — para calcular TSS desde Strava</div>
+      <input class="input" type="number" placeholder="200" value="${cfg.ftp||''}"
+        oninput="CFG.set({ftp:parseInt(this.value)||200})">
+    </div>
+
+    <!-- ── Acciones ── -->
+    ${(sc || wc) ? `
+    <button class="btn btn-ghost btn-block" onclick="DCACHE.clear();loadLiveData().then(()=>{render();S.ajMsg='Datos actualizados ✓';renderSheet()})">
+      ${ico('activity',14)} Actualizar datos ahora
+    </button>` : ''}
+  </div>`;
+};
+
 // ── Actions ────────────────────────────────────────────────
 function go(name) {
   S.screen = name;
@@ -1054,11 +1391,17 @@ function sendChat(text) {
 }
 
 // ── Render ─────────────────────────────────────────────────
+const SHEETS = {
+  summary: SHEET_SUMMARY,
+  exercise: SHEET_EXERCISE,
+  ajustes: SHEET_AJUSTES,
+};
+
 function renderSheet() {
   const overlay = document.getElementById('sheet-overlay');
   if(!overlay) return;
-  if(S.sheet==='summary') overlay.innerHTML = SHEET_SUMMARY();
-  else if(S.sheet==='exercise') overlay.innerHTML = SHEET_EXERCISE();
+  const fn = SHEETS[S.sheet];
+  if(fn) overlay.innerHTML = fn();
 }
 
 function render() {
@@ -1067,10 +1410,10 @@ function render() {
   if(fn) scr.innerHTML = fn();
 
   const existing = document.getElementById('sheet-overlay');
-  if(S.sheet==='summary' || S.sheet==='exercise') {
+  if(S.sheet && SHEETS[S.sheet]) {
     const div = existing || document.createElement('div');
     div.id = 'sheet-overlay';
-    div.innerHTML = S.sheet==='summary' ? SHEET_SUMMARY() : SHEET_EXERCISE();
+    div.innerHTML = SHEETS[S.sheet]();
     if(!existing) document.getElementById('app').appendChild(div);
   } else {
     if(existing) existing.remove();
@@ -1079,6 +1422,58 @@ function render() {
   if(S.screen==='coach') {
     setTimeout(()=>{const s=document.getElementById('chat-scroll');if(s)s.scrollTop=s.scrollHeight;},30);
   }
+}
+
+// ── Live data loader ────────────────────────────────────────
+async function loadLiveData() {
+  const jobs = [];
+  if(stravaConnected()) {
+    jobs.push(
+      loadStravaData().then(d => {
+        if(!d.activities?.length) return;
+        // Última actividad de ciclismo
+        const lastRide = d.activities.find(a => ['Ride','VirtualRide','EBikeRide'].includes(a.type)) || d.activities[0];
+        S.liveData.lastActivity = fmtActivity(lastRide);
+        // TSS semanal
+        const weekAgo = Date.now() - 7*86400000;
+        const week = d.activities.filter(a => new Date(a.start_date_local).getTime() > weekAgo);
+        S.liveData.weeklyTSS = week.reduce((s,a) => s + (calcTSS(a)||0), 0);
+        S.liveData.weeklyRides = week.filter(a => a.type==='Ride').length;
+        S.liveData.weeklyKm = +(week.reduce((s,a) => s + a.distance, 0)/1000).toFixed(1);
+      }).catch(()=>{})
+    );
+  }
+  if(withingsConnected()) {
+    jobs.push(
+      loadWithingsData().then(d => {
+        S.liveData.body = parseWithings(d.measures);
+      }).catch(()=>{})
+    );
+  }
+  await Promise.all(jobs);
+}
+
+// ── App init (handles OAuth callback) ─────────────────────
+async function initApp() {
+  const p = new URLSearchParams(location.search);
+  const code = p.get('code'), state = p.get('state');
+  if(code && (state==='strava' || state==='withings')) {
+    history.replaceState({}, '', location.pathname);
+    S.sheet = 'ajustes';
+    try {
+      if(state==='strava') {
+        await stravaExchange(code);
+        S.ajMsg = '✓ Strava conectado correctamente.';
+      } else {
+        await withingsExchange(code);
+        S.ajMsg = '✓ Withings conectado correctamente.';
+      }
+    } catch(e) {
+      S.ajErr = 'Error al conectar: ' + e.message;
+    }
+  }
+  await loadLiveData();
+  render();
 }
 
 // ── Clock ──────────────────────────────────────────────────
@@ -1090,7 +1485,7 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 10000);
 
-render();
+initApp();
 
 // ── Service Worker ─────────────────────────────────────────
 if('serviceWorker' in navigator) {
