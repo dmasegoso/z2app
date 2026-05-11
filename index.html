@@ -372,6 +372,53 @@ const DCACHE = {
   clear: (k) => k ? localStorage.removeItem('z2_dc_' + k) : Object.keys(localStorage).filter(k => k.startsWith('z2_dc_')).forEach(k => localStorage.removeItem(k)),
 };
 
+// ── Intervals.icu ──────────────────────────────────────────
+const INTERVALS_API = 'https://intervals.icu/api/v1';
+
+const intervalsConnected = () => { const c = CFG.get(); return !!(c.intervals_key && c.intervals_athlete_id); };
+
+async function intervalsSend() {
+  const cfg = CFG.get();
+  if (!cfg.intervals_key || !cfg.intervals_athlete_id) {
+    S.ajErr = 'Configura tu API key y Athlete ID de Intervals.icu en Ajustes.';
+    S.sheet = 'ajustes';
+    render();
+    return;
+  }
+  S.intervalsSending = true;
+  render();
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const startLocal = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}T07:00:00`;
+  const payload = {
+    start_date_local: startLocal,
+    name: 'Rodaje aeróbico Z2',
+    description: 'Esfuerzo conversacional. Cadencia 85–95 rpm. FC objetivo 130–145 BPM. Garabitas o carretera de Extremadura.',
+    category: 'WORKOUT',
+    type: 'Ride',
+    moving_time: 5400,
+    load_type: 'HEART_RATE',
+  };
+  const auth = btoa(`API:${cfg.intervals_key}`);
+  try {
+    const resp = await fetch(`${INTERVALS_API}/athlete/${cfg.intervals_athlete_id}/events`, {
+      method: 'POST',
+      headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) { const t = await resp.text(); throw new Error(t); }
+    localStorage.setItem('z2_intervals_sent', today.toISOString().slice(0,10));
+    S.intervalsSent = true;
+    S.intervalsSending = false;
+    render();
+  } catch(e) {
+    S.intervalsSending = false;
+    S.ajErr = 'Intervals.icu: ' + (e.message || 'error desconocido');
+    S.sheet = 'ajustes';
+    render();
+  }
+}
+
 // ── Strava ─────────────────────────────────────────────────
 const STRAVA_AUTH  = 'https://www.strava.com/oauth/authorize';
 const STRAVA_TOKEN = 'https://www.strava.com/oauth/token';
@@ -611,6 +658,8 @@ let S = {
   suuntoError: null,
   ajErr: null,
   ajMsg: null,
+  intervalsSent: false,
+  intervalsSending: false,
 };
 
 // ── Icons ──────────────────────────────────────────────────
@@ -726,7 +775,7 @@ home: () => {
           ${ico('bike',24)}
         </div>
         <div class="title-md" style="margin-top:16px">Rodaje aeróbico Z2</div>
-        <div class="mono muted" style="font-size:11px;margin-top:5px">Bici · 90 min · enviado a Garmin Connect</div>
+        <div class="mono muted" style="font-size:11px;margin-top:5px">Bici · 90 min${S.intervalsSent?' · '+ico('check',10)+' Garmin':''}</div>
         <div style="margin-top:13px">${zonebar(2)}</div>
         <div class="row" style="justify-content:space-between;margin-top:7px">
           <div class="mono" style="font-size:10px;color:var(--c-text-subtle);letter-spacing:.06em">FC OBJETIVO</div>
@@ -896,12 +945,32 @@ plan: () => {
         <div class="card tinted" style="padding:12px"><div class="eyebrow">Duración</div><div class="num" style="font-size:22px;margin-top:4px">90<span class="mono muted" style="font-size:11px;margin-left:2px">min</span></div></div>
         <div class="card tinted" style="padding:12px"><div class="eyebrow">FC objetivo</div><div class="num" style="font-size:22px;margin-top:4px">130<span class="mono muted" style="font-size:10px">–</span>145</div></div>
       </div>
-      <div class="card" style="margin-top:10px;background:var(--c-surface-2);border-color:transparent;padding:11px 14px">
-        <div class="row" style="gap:8px">
-          ${ico('activity',13)}
-          <div style="font-size:13px;line-height:1.5">Garmin no tiene API pública — ejecuta el entreno con tu Garmin y sube la actividad a <strong>Strava</strong> para verla aquí.</div>
-        </div>
-      </div>
+      ${(() => {
+        if (S.intervalsSent) return `
+        <div class="card" style="margin-top:10px;background:rgba(74,222,128,.08);border-color:var(--c-good);padding:11px 14px">
+          <div class="row" style="gap:8px">
+            ${ico('check',13)}
+            <div style="font-size:13px;line-height:1.5;color:var(--c-good)">Enviado a <strong>Intervals.icu</strong> — aparecerá en Garmin Connect en unos minutos.</div>
+          </div>
+        </div>`;
+        if (intervalsConnected()) return `
+        <button onclick="intervalsSend()" style="width:100%;text-align:left;margin-top:10px" ${S.intervalsSending?'disabled':''}>
+          <div class="card" style="padding:11px 14px;background:var(--c-accent-soft);border-color:var(--c-accent)">
+            <div class="row" style="gap:8px">
+              ${S.intervalsSending
+                ? `<span class="mono muted" style="font-size:11px">Enviando…</span>`
+                : `${ico('bike',13)}<div style="font-size:13px;line-height:1.5">Enviar entreno a <strong>Intervals.icu</strong> → Garmin Connect ${ico('chevron',12)}</div>`}
+            </div>
+          </div>
+        </button>`;
+        return `
+        <div class="card" style="margin-top:10px;background:var(--c-surface-2);border-color:transparent;padding:11px 14px">
+          <div class="row" style="gap:8px">
+            ${ico('activity',13)}
+            <div style="font-size:13px;line-height:1.5">Configura <strong>Intervals.icu</strong> en Ajustes para enviar este entreno a Garmin Connect automáticamente.</div>
+          </div>
+        </div>`;
+      })()}
     </div>
 
     <div class="sec"><h2>Fuerza · Tren superior</h2><span class="pill">${ico('dumbbell',11)}~55 min</span></div>
@@ -1359,6 +1428,32 @@ const SHEET_AJUSTES = () => {
       </div>
     </div>`}
 
+    <!-- ── Intervals.icu ── -->
+    <div class="eyebrow" style="margin-bottom:10px">Intervals.icu → Garmin Connect</div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:12.5px;color:var(--c-text-muted);margin-bottom:12px;line-height:1.55">
+        1. Crea cuenta gratuita en <strong>intervals.icu</strong> y conecta tu Garmin.<br>
+        2. En tu perfil ve a <strong>Settings → API Key</strong> y cópiala aquí.<br>
+        3. Tu Athlete ID está en la URL: intervals.icu/athlete/<strong>i12345</strong>/…
+      </div>
+      <div class="col" style="gap:9px">
+        <div>
+          <div class="eyebrow" style="margin-bottom:5px">API Key</div>
+          <input class="input" type="password" placeholder="sk-…"
+            value="${cfg.intervals_key||''}" oninput="CFG.set({intervals_key:this.value.trim()})">
+        </div>
+        <div>
+          <div class="eyebrow" style="margin-bottom:5px">Athlete ID</div>
+          <input class="input" type="text" placeholder="i12345"
+            value="${cfg.intervals_athlete_id||''}" oninput="CFG.set({intervals_athlete_id:this.value.trim()})">
+        </div>
+        ${intervalsConnected() ? `
+        <button class="btn btn-block" style="background:var(--c-accent);color:#fff;margin-top:4px" onclick="intervalsSend()">
+          ${ico('bike',14)} Enviar entreno de hoy
+        </button>` : ''}
+      </div>
+    </div>
+
     <!-- ── Claude API ── -->
     <div class="eyebrow" style="margin-bottom:10px">Claude API · lectura de capturas Suunto</div>
     <div class="card" style="margin-bottom:16px">
@@ -1701,6 +1796,7 @@ async function initApp() {
   }
   loadSuuntoCache();
   loadSeriesState();
+  S.intervalsSent = localStorage.getItem('z2_intervals_sent') === new Date().toISOString().slice(0,10);
   await loadLiveData();
   render();
 }
