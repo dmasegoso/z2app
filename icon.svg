@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0a0a0a"/>
+  <circle cx="256" cy="256" r="220" fill="none" stroke="#ff5a3a" stroke-width="14"/>
+  <text x="256" y="308" font-size="196" font-weight="700" text-anchor="middle"
+    font-family="system-ui,-apple-system,sans-serif" fill="#ff5a3a" letter-spacing="-8">Z2</text>
+</svg>

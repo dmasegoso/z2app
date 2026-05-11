@@ -8,6 +8,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0a0a0a">
 <title>Dani · App</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -56,7 +58,6 @@ body{
   box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px var(--c-border);
   overflow:hidden;display:flex;flex-direction:column;position:relative;
 }
-/* Móvil real: pantalla completa sin frame */
 @media(max-width:500px){
   html,body{height:100%;height:100dvh}
   body{display:block;background:var(--c-bg-2);padding:0}
@@ -117,6 +118,7 @@ h2{font-family:var(--f-d);font-weight:600;font-size:18px;letter-spacing:-.015em;
 .col{display:flex;flex-direction:column}
 .grow{flex:1}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .divider{height:1px;background:var(--c-border);margin:14px 0}
 
@@ -150,16 +152,14 @@ h2{font-family:var(--f-d);font-weight:600;font-size:18px;letter-spacing:-.015em;
 /* ── Macro bar ── */
 .macrobar{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--c-surface-2)}
 
-/* ── Image placeholder ── */
-.img-ph{background:repeating-linear-gradient(135deg,var(--c-surface-2),var(--c-surface-2) 8px,var(--c-surface-3) 8px,var(--c-surface-3) 16px);display:flex;align-items:center;justify-content:center;font-family:var(--f-m);font-size:9.5px;letter-spacing:.06em;color:var(--c-text-subtle);text-transform:uppercase;border-radius:var(--r-md)}
-
 /* ── Input ── */
 .input{width:100%;background:var(--c-surface-2);border:1px solid var(--c-border);border-radius:var(--r-pill);padding:11px 18px;color:var(--c-text);font-size:14px;outline:none;transition:border-color .18s}
 .input:focus{border-color:var(--c-accent)}
 
 /* ── Chips ── */
-.chip{display:inline-flex;align-items:center;white-space:nowrap;padding:7px 13px;font-size:13px;font-weight:500;border-radius:var(--r-pill);background:var(--c-surface);border:1px solid var(--c-border);color:var(--c-text);cursor:pointer;transition:border-color .15s,color .15s;flex-shrink:0}
+.chip{display:inline-flex;align-items:center;white-space:nowrap;padding:7px 13px;font-size:13px;font-weight:500;border-radius:var(--r-pill);background:var(--c-surface);border:1px solid var(--c-border);color:var(--c-text);cursor:pointer;transition:border-color .15s,color .15s,background .15s;flex-shrink:0}
 .chip:hover{border-color:var(--c-accent);color:var(--c-accent)}
+.chip.sel{background:var(--c-accent-soft);border-color:var(--c-accent);color:var(--c-accent)}
 
 /* ── Chat bubbles ── */
 .bubble-wrap{display:flex;gap:8px;margin-bottom:12px}
@@ -188,16 +188,34 @@ h2{font-family:var(--f-d);font-weight:600;font-size:18px;letter-spacing:-.015em;
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 @keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-3px);opacity:1}}
 @keyframes sheetup{from{transform:translateY(100%)}to{transform:none}}
+@keyframes fillbar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 
 /* ── Sheet ── */
 .sheet-bd{position:absolute;inset:0;background:rgba(0,0,0,.55);z-index:20;backdrop-filter:blur(3px)}
 .sheet{position:absolute;left:0;right:0;bottom:0;background:var(--c-bg-2);border-radius:22px 22px 0 0;padding:16px 20px 32px;z-index:21;animation:sheetup .28s cubic-bezier(.2,.8,.2,1)}
 .handle{width:32px;height:4px;border-radius:2px;background:var(--c-border-strong);margin:0 auto 14px}
+
+/* ── YouTube embed ── */
+.yt-wrap{position:relative;width:100%;border-radius:var(--r-md);overflow:hidden;background:#000;cursor:pointer;aspect-ratio:16/9}
+.yt-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+.yt-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.28)}
+.yt-play-btn{width:58px;height:42px;background:rgba(220,0,0,.92);border-radius:9px;display:flex;align-items:center;justify-content:center}
+.yt-iframe{width:100%;aspect-ratio:16/9;border:0;border-radius:var(--r-md);display:block}
+
+/* ── Series table ── */
+.series-hdr{display:grid;grid-template-columns:24px 1fr 1fr 34px;gap:6px;padding:5px 2px 7px;border-bottom:1px solid var(--c-border)}
+.serie-row{display:grid;grid-template-columns:24px 1fr 1fr 34px;gap:6px;align-items:center;padding:7px 2px;border-bottom:1px solid var(--c-border)}
+.serie-row:last-child{border-bottom:none}
+.serie-num{font-family:var(--f-m);font-size:11px;color:var(--c-text-muted);text-align:center}
+.serie-input{width:100%;background:var(--c-surface-2);border:1px solid var(--c-border);border-radius:8px;padding:7px 4px;color:var(--c-text);font-size:14px;font-family:var(--f-m);text-align:center;outline:none;transition:border-color .15s;-moz-appearance:textfield}
+.serie-input::-webkit-outer-spin-button,.serie-input::-webkit-inner-spin-button{-webkit-appearance:none}
+.serie-input:focus{border-color:var(--c-accent)}
+.check-btn{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;border:1.5px solid var(--c-border);background:var(--c-surface-2);cursor:pointer;transition:all .15s;justify-self:center}
+.check-btn.done{background:var(--c-good);border-color:var(--c-good);color:#0a0a0a}
 </style>
 </head>
 <body>
 <div class="frame" id="app">
-  <!-- Status bar: oculta en móvil real (el SO tiene la suya) -->
   <div class="status" id="statusbar">
     <span id="clock">9:41</span>
     <div class="icons">
@@ -207,10 +225,8 @@ h2{font-family:var(--f-d);font-weight:600;font-size:18px;letter-spacing:-.015em;
     </div>
   </div>
 
-  <!-- Screen container -->
   <div id="screen" class="screen"></div>
 
-  <!-- Bottom nav -->
   <nav class="nav">
     <button class="nav-item active" id="n-home" onclick="go('home')">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a2 2 0 0 1-2 2h-4v-7h-6v7H5a2 2 0 0 1-2-2z"/></svg>
@@ -236,19 +252,99 @@ h2{font-family:var(--f-d);font-weight:600;font-size:18px;letter-spacing:-.015em;
 </div>
 
 <script>
+// ── Exercise data ──────────────────────────────────────────
+const EXERCISES = [
+  {
+    name:'Press banca plano', sets:'4 × 6', rest:"2' desc", kg:80, ytId:'vcBig73ojpE',
+    tip:'Mantén los omóplatos retraídos y en arco neutro durante todo el movimiento para proteger el hombro.',
+    cues:[
+      'Agarre ligeramente más ancho que los hombros, codos a 45° del torso',
+      'Baja la barra al pecho inferior de forma controlada en 2–3 segundos',
+      'Empuja explosivamente manteniendo los pies en el suelo y el core tenso'
+    ]
+  },
+  {
+    name:'Remo en barra', sets:'4 × 8', rest:'90″', kg:70, ytId:'FWJR5Ve8UtQ',
+    tip:'Inicia el movimiento retrayendo las escápulas antes de doblar el codo para activar correctamente la espalda.',
+    cues:[
+      'Espalda paralela al suelo o con leve inclinación, rodillas ligeramente flexionadas',
+      'Lleva la barra al ombligo con los codos pegados al torso',
+      'Contrae la espalda alta 1 segundo en la posición más alta antes de bajar'
+    ]
+  },
+  {
+    name:'Press militar', sets:'3 × 10', rest:'90″', kg:50, ytId:'2yjwXTZQDDI',
+    tip:'Activa el glúteo y el core para proteger la zona lumbar cuando empujas por encima de la cabeza.',
+    cues:[
+      'Barra a la altura de la clavícula, agarre a anchura de hombros o ligeramente más',
+      'Empuja verticalmente sin arquear en exceso la zona lumbar',
+      'Bloquea los codos en la cima sin hiperextender las muñecas'
+    ]
+  },
+  {
+    name:'Curl bíceps barra', sets:'3 × 12', rest:'60″', kg:30, ytId:'ykJmrZ5v0Oo',
+    tip:'El movimiento debe originarse en el codo; evita balancear el torso para no restar tensión al bíceps.',
+    cues:[
+      'Codos pegados a los costados durante toda la repetición, no los dejes volar',
+      'Sube controlando 1 segundo, baja con control en 2 segundos',
+      'Detente justo antes de la extensión completa para mantener tensión constante'
+    ]
+  },
+  {
+    name:'Tríceps polea', sets:'3 × 12', rest:'60″', kg:25, ytId:'kiuVA0gs3EI',
+    tip:'Mantén los codos fijos al costado y el torso ligeramente inclinado hacia delante para aislar el tríceps.',
+    cues:[
+      'Codos a los costados en todo momento, no los dejes abrirse',
+      'Extiende completamente el codo al final de cada repetición',
+      'Controla la vuelta lentamente para mantener tensión en la fase excéntrica'
+    ]
+  },
+];
+
+// ── Recipe images (Unsplash IDs) ───────────────────────────
+const RECIPE_IMGS = [
+  'photo-1517673400267-0251440c45dc', // Porridge
+  'photo-1467003909585-2f8a72700288', // Pasta salmón
+  'photo-1481349518771-20055b2a7b24', // Plátano café
+  'photo-1598515214211-89d3c73ae83b', // Pollo boniato
+];
+
+// ── Progress data ──────────────────────────────────────────
+const TSS_WEEKS  = [268, 312, 295, 341, 315, 312]; // 6 semanas
+const HRV_DATA   = [55,58,60,59,62,61,64,63,62,60,63,65,64,62]; // 14 días
+const RM_HISTORY = {
+  'Sentadilla':   [105,108,110,112,115,118,120],
+  'Press banca':  [90,92,92,95,95,97.5,97.5],
+  'Peso muerto':  [130,135,135,140,140,142,145],
+  'Press militar':[70,70,72.5,72.5,72.5,72.5,72.5],
+};
+
+// ── Init series state ──────────────────────────────────────
+function initSeriesState() {
+  return EXERCISES.map(ex => {
+    const [sStr, rStr] = ex.sets.split('×');
+    const n = parseInt(sStr.trim()), r = parseInt(rStr.trim());
+    return Array.from({length:n}, () => ({kg:ex.kg, reps:r, done:false}));
+  });
+}
+
 // ── State ──────────────────────────────────────────────────
 let S = {
   screen: 'home',
   checkin: false,
   logPhoto: false,
-  planDay: 5, // SAB index
+  planDay: 5,
   progresoTab: 'cuerpo',
+  progresoExercise: null,
   chatMsgs: [
     {from:'ai', text:'Buenas Dani. HRV 62ms y Recursos 94% — estás en plena forma. Doble sesión hoy: Z2 de 90 min + tren superior. ¿Todo listo?', t:'08:42'},
   ],
-  chatDraft: '',
   chatThinking: false,
-  sheet: null, // 'summary'
+  sheet: null,          // 'summary' | 'exercise'
+  exerciseIdx: null,
+  exerciseVideo: false,
+  seriesState: initSeriesState(),
+  sensaciones: [],
 };
 
 // ── Icons ──────────────────────────────────────────────────
@@ -266,6 +362,7 @@ const ICONS = {
   sun:`<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>`,
   moon:`<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>`,
   activity:`<path d="M3 12h4l3-9 4 18 3-9h4"/>`,
+  play:`<polygon points="5,3 19,12 5,21" fill="currentColor"/>`,
 };
 const ico = (name, size=18) =>
   `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||''}</svg>`;
@@ -311,6 +408,22 @@ const zonespec = (dist, active) => {
     </div>`).join('')}</div>`;
 };
 
+// Animated horizontal zone bars for post-workout summary
+const zonespecAnimated = (dist, active) => {
+  const labels=['Z1','Z2','Z3','Z4','Z5'];
+  const cols=['var(--c-z1)','var(--c-z2)','var(--c-z3)','var(--c-z4)','var(--c-z5)'];
+  return `<div style="display:flex;flex-direction:column;gap:8px">
+    ${labels.map((l,i)=>`
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:20px;font-family:var(--f-m);font-size:10.5px;color:${i===active-1?cols[i]:'var(--c-text-muted)'};font-weight:${i===active-1?600:400}">${l}</div>
+        <div style="flex:1;height:7px;background:var(--c-surface-2);border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${dist[i]}%;background:${cols[i]};border-radius:4px;transform-origin:left;animation:fillbar .7s ${(i*0.09).toFixed(2)}s cubic-bezier(.2,.8,.2,1) both"></div>
+        </div>
+        <div style="font-family:var(--f-m);font-size:11px;min-width:28px;text-align:right;color:${i===active-1?cols[i]:'var(--c-text-muted)'}">${dist[i]}%</div>
+      </div>`).join('')}
+  </div>`;
+};
+
 const sparkline = (data, color) => {
   const w=260, h=44, mn=Math.min(...data), mx=Math.max(...data), rng=mx-mn||1;
   const pts=data.map((v,i)=>`${(i/(data.length-1))*w},${h-(((v-mn)/rng)*h*.75+h*.12)}`).join(' ');
@@ -322,7 +435,13 @@ const sparkline = (data, color) => {
 // ── Screens ────────────────────────────────────────────────
 const SCREENS = {
 
-home: () => `
+home: () => {
+  const meals = [
+    {name:'Porridge de avena con plátano',time:'Desayuno · 08:00',kcal:420,p:18,c:68,f:9,done:true,img:RECIPE_IMGS[0]},
+    {name:'Pasta integral con salmón',time:'Almuerzo · 13:30',kcal:720,p:45,c:90,f:18,done:false,img:RECIPE_IMGS[1]},
+    {name:'Pollo al horno con boniato',time:'Cena · 20:30',kcal:580,p:52,c:48,f:14,done:false,img:RECIPE_IMGS[3]},
+  ];
+  return `
   <div class="hdr">
     <div>
       <div class="hdr-meta">Sáb · 10 May</div>
@@ -414,14 +533,12 @@ home: () => `
     </button>
 
     <div class="sec"><h2>Hoy en la cocina</h2><button class="card-link" onclick="go('nutricion')">Ver todo ${ico('chevron',13)}</button></div>
-    ${[
-      {name:'Porridge de avena con plátano',time:'Desayuno · 08:00',kcal:420,p:18,c:68,f:9,done:true},
-      {name:'Pasta integral con salmón',time:'Almuerzo · 13:30',kcal:720,p:45,c:90,f:18,done:false},
-      {name:'Pollo al horno con boniato',time:'Cena · 20:30',kcal:580,p:52,c:48,f:14,done:false},
-    ].map((m,i)=>`
+    ${meals.map((m,i)=>`
       <div class="card" style="padding:13px;margin-top:${i?'8px':'0'};opacity:${m.done?.7:1}">
         <div class="row" style="gap:11px">
-          <div class="img-ph" style="width:50px;height:50px;flex-shrink:0;font-size:8px">foto</div>
+          <img src="https://images.unsplash.com/${m.img}?w=100&q=80" loading="lazy"
+            style="width:50px;height:50px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0"
+            onerror="this.style.display='none'">
           <div class="grow col" style="gap:3px">
             <div class="row" style="justify-content:space-between;gap:6px">
               <div class="title-sm" style="font-size:13.5px">${m.name}</div>
@@ -439,20 +556,14 @@ home: () => `
         </div>
       </div>`).join('')}
 
-  </div></div>`,
+  </div></div>`;
+},
 
 plan: () => {
   const days=[
     {n:'LUN',d:5,b:true,f:true},{n:'MAR',d:6,b:true},{n:'MIÉ',d:7},
     {n:'JUE',d:8,b:true,f:true},{n:'VIE',d:9,b:true,done:true},
     {n:'SÁB',d:10,b:true,f:true,today:true},{n:'DOM',d:11},
-  ];
-  const exs=[
-    {name:'Press banca plano',sets:'4 × 6',rest:"2' desc",kg:80},
-    {name:'Remo en barra',sets:'4 × 8',rest:'90″',kg:70},
-    {name:'Press militar',sets:'3 × 10',rest:'90″',kg:50},
-    {name:'Curl bíceps barra',sets:'3 × 12',rest:'60″',kg:30},
-    {name:'Tríceps polea',sets:'3 × 12',rest:'60″',kg:25},
   ];
   return `
   <div class="hdr"><div><div class="hdr-meta">Semana 19 · 5–11 May</div><h1>Plan</h1></div></div>
@@ -488,15 +599,20 @@ plan: () => {
 
     <div class="sec"><h2>Fuerza · Tren superior</h2><span class="pill">${ico('dumbbell',11)}~55 min</span></div>
     <div class="card" style="padding:0;overflow:hidden">
-      ${exs.map((ex,i)=>`
-        <div class="row" style="gap:11px;padding:12px 15px;border-bottom:${i<exs.length-1?'1px solid var(--c-border)':'none'}">
-          <div style="width:36px;height:36px;border-radius:9px;background:var(--c-surface-2);display:grid;place-items:center;flex-shrink:0">${ico('dumbbell',15)}</div>
-          <div class="grow">
-            <div class="title-sm" style="font-size:14px">${ex.name}</div>
-            <div class="mono muted" style="font-size:10px;margin-top:2px">${ex.sets} · ${ex.rest}</div>
+      ${EXERCISES.map((ex,i)=>`
+        <button onclick="openExercise(${i})" style="width:100%;text-align:left">
+          <div class="row" style="gap:11px;padding:12px 15px;border-bottom:${i<EXERCISES.length-1?'1px solid var(--c-border)':'none'}">
+            <div style="width:36px;height:36px;border-radius:9px;background:var(--c-surface-2);display:grid;place-items:center;flex-shrink:0">${ico('dumbbell',15)}</div>
+            <div class="grow">
+              <div class="title-sm" style="font-size:14px">${ex.name}</div>
+              <div class="mono muted" style="font-size:10px;margin-top:2px">${ex.sets} · ${ex.rest}</div>
+            </div>
+            <div class="row" style="gap:6px;align-items:center">
+              <div class="num" style="font-size:17px;color:var(--c-accent)">${ex.kg}<span class="mono muted" style="font-size:9.5px;margin-left:2px">kg</span></div>
+              ${ico('chevron',14)}
+            </div>
           </div>
-          <div class="num" style="font-size:17px;color:var(--c-accent)">${ex.kg}<span class="mono muted" style="font-size:9.5px;margin-left:2px">kg</span></div>
-        </div>`).join('')}
+        </button>`).join('')}
     </div>
 
     <div class="sec"><h2>Nutrición · Hoy</h2><span class="pill good">${ico('sparkle',11)}Ajustada</span></div>
@@ -512,7 +628,14 @@ plan: () => {
   </div></div>`;
 },
 
-nutricion: () => `
+nutricion: () => {
+  const recipes = [
+    {tag:'DESAYUNO · 08:00',name:'Porridge de avena con plátano',ings:'80g avena · 1 plátano · 250ml leche · miel · canela',kcal:420,p:18,c:68,f:9,done:true,img:RECIPE_IMGS[0]},
+    {tag:'ALMUERZO · 13:30',name:'Pasta integral con salmón',ings:'150g pasta · 180g salmón · espinacas · ajo · AOVE',kcal:720,p:45,c:90,f:18,img:RECIPE_IMGS[1]},
+    {tag:'PRE-ENTRENO · 16:30',name:'Plátano + café solo',ings:'1 plátano · café solo',kcal:110,p:1,c:28,f:0,img:RECIPE_IMGS[2]},
+    {tag:'CENA · 20:30',name:'Pollo al horno con boniato',ings:'180g pollo · 200g boniato · brócoli · romero · AOVE',kcal:580,p:52,c:48,f:14,faded:true,img:RECIPE_IMGS[3]},
+  ];
+  return `
   <div class="hdr"><div><div class="hdr-meta">Sáb · doble sesión</div><h1>Nutrición</h1></div></div>
   <div class="scroll"><div class="pad">
 
@@ -545,14 +668,11 @@ nutricion: () => `
     </button>
 
     <div class="sec"><h2>Recetas de hoy</h2></div>
-    ${[
-      {tag:'DESAYUNO · 08:00',name:'Porridge de avena con plátano',ings:'80g avena · 1 plátano · 250ml leche · miel · canela',kcal:420,p:18,c:68,f:9,done:true},
-      {tag:'ALMUERZO · 13:30',name:'Pasta integral con salmón',ings:'150g pasta · 180g salmón · espinacas · ajo · AOVE',kcal:720,p:45,c:90,f:18},
-      {tag:'PRE-ENTRENO · 16:30',name:'Plátano + café solo',ings:'1 plátano · café solo',kcal:110,p:1,c:28,f:0},
-      {tag:'CENA · 20:30',name:'Pollo al horno con boniato',ings:'180g pollo · 200g boniato · brócoli · romero · AOVE',kcal:580,p:52,c:48,f:14,faded:true},
-    ].map((r,i)=>`
+    ${recipes.map((r,i)=>`
       <div class="card" style="padding:0;overflow:hidden;margin-top:${i?'10px':'0'};opacity:${r.faded?.65:1}">
-        <div class="img-ph" style="height:120px;border-radius:var(--r-lg) var(--r-lg) 0 0">receta ${i+1}</div>
+        <img src="https://images.unsplash.com/${r.img}?w=600&q=80" loading="lazy"
+          style="height:160px;width:100%;object-fit:cover;border-radius:var(--r-lg) var(--r-lg) 0 0;display:block"
+          onerror="this.style.display='none'">
         <div style="padding:14px">
           <div class="row" style="justify-content:space-between">
             <span class="eyebrow">${r.tag}</span>
@@ -570,15 +690,23 @@ nutricion: () => `
         </div>
       </div>`).join('')}
 
-  </div></div>`,
+  </div></div>`;
+},
 
-progreso: () => `
+progreso: () => {
+  const fuerza = [
+    {name:'Sentadilla',rm:120,d:'+5kg'},
+    {name:'Press banca',rm:97.5,d:'+2.5kg'},
+    {name:'Peso muerto',rm:145,d:'+5kg'},
+    {name:'Press militar',rm:72.5,d:'='},
+  ];
+  return `
   <div class="hdr"><div><div class="hdr-meta">Últimas 4 semanas</div><h1>Progreso</h1></div></div>
   <div class="scroll"><div class="pad">
 
     <div style="display:flex;gap:4px;padding:4px;background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--r-pill);margin-bottom:16px">
       ${['cuerpo','fuerza','bici'].map(t=>`
-        <button onclick="S.progresoTab='${t}';render()" style="flex:1;padding:8px 6px;border-radius:var(--r-pill);background:${S.progresoTab===t?'var(--c-text)':'transparent'};color:${S.progresoTab===t?'var(--c-bg)':'var(--c-text-muted)'};font-weight:500;font-size:12.5px;transition:background .18s,color .18s;border:0;cursor:pointer">
+        <button onclick="S.progresoTab='${t}';S.progresoExercise=null;render()" style="flex:1;padding:8px 6px;border-radius:var(--r-pill);background:${S.progresoTab===t?'var(--c-text)':'transparent'};color:${S.progresoTab===t?'var(--c-bg)':'var(--c-text-muted)'};font-weight:500;font-size:12.5px;transition:background .18s,color .18s;border:0;cursor:pointer">
           ${t.charAt(0).toUpperCase()+t.slice(1)}
         </button>`).join('')}
     </div>
@@ -594,16 +722,43 @@ progreso: () => `
       <div class="g2" style="margin-top:10px">
         <div class="card" style="padding:13px"><div class="eyebrow">% Grasa</div><div class="num" style="font-size:26px;margin-top:4px">14,2<span class="mono muted" style="font-size:10px;margin-left:2px">%</span></div><div class="mono" style="font-size:10px;margin-top:3px;color:var(--c-good)">↓ −0,6%</div></div>
         <div class="card" style="padding:13px"><div class="eyebrow">Músculo</div><div class="num" style="font-size:26px;margin-top:4px">63,4<span class="mono muted" style="font-size:10px;margin-left:2px">kg</span></div><div class="mono" style="font-size:10px;margin-top:3px;color:var(--c-good)">↑ +0,4 kg</div></div>
+      </div>
+      <div class="card" style="margin-top:10px">
+        <div class="row" style="justify-content:space-between;margin-bottom:8px">
+          <div><div class="eyebrow">HRV</div><div class="mono" style="font-size:10.5px;margin-top:2px;color:var(--c-text-subtle)">Últimas 2 semanas</div></div>
+          <div class="num" style="font-size:15px;color:var(--c-good)">62<span class="mono muted" style="font-size:10px;margin-left:2px">ms</span></div>
+        </div>
+        ${sparkline(HRV_DATA,'var(--c-good)')}
+        <div class="row" style="justify-content:space-between;margin-top:4px">
+          <span class="mono muted" style="font-size:10px">hace 2 sem</span>
+          <span class="mono" style="font-size:10px;color:var(--c-good)">↑ +4ms vs media</span>
+        </div>
       </div>` :
 
     S.progresoTab==='fuerza'?`
       <div class="card" style="padding:0;overflow:hidden">
-        ${[{name:'Sentadilla',rm:120,d:'+5kg'},{name:'Press banca',rm:97.5,d:'+2.5kg'},{name:'Peso muerto',rm:145,d:'+5kg'},{name:'Press militar',rm:72.5,d:'='}].map((e,i,arr)=>`
-          <div class="row" style="padding:12px 15px;border-bottom:${i<arr.length-1?'1px solid var(--c-border)':'none'};gap:10px">
-            <div class="grow"><div class="title-sm" style="font-size:14px">${e.name}</div><div class="eyebrow" style="margin-top:2px">1RM ESTIMADO</div></div>
-            <div class="num" style="font-size:19px">${e.rm}<span class="mono muted" style="font-size:9.5px;margin-left:2px">kg</span></div>
-            <div class="mono" style="font-size:11px;color:${e.d==='='?'var(--c-text-muted)':'var(--c-good)'};min-width:34px;text-align:right">${e.d}</div>
-          </div>`).join('')}
+        ${fuerza.map((e,i,arr)=>`
+          <button onclick="progresoEx('${e.name}')" style="width:100%;text-align:left">
+            <div class="row" style="padding:12px 15px;border-bottom:1px solid var(--c-border);gap:10px">
+              <div class="grow">
+                <div class="title-sm" style="font-size:14px">${e.name}</div>
+                <div class="eyebrow" style="margin-top:2px">1RM ESTIMADO</div>
+              </div>
+              <div class="num" style="font-size:19px">${e.rm}<span class="mono muted" style="font-size:9.5px;margin-left:2px">kg</span></div>
+              <div class="mono" style="font-size:11px;color:${e.d==='='?'var(--c-text-muted)':'var(--c-good)'};min-width:34px;text-align:right">${e.d}</div>
+            </div>
+          </button>
+          ${S.progresoExercise===e.name?`
+          <div style="padding:10px 15px 14px;border-bottom:1px solid var(--c-border);background:var(--c-surface-2)">
+            <div class="eyebrow" style="margin-bottom:8px">Evolución 1RM · 7 semanas</div>
+            ${sparkline(RM_HISTORY[e.name]||[e.rm-10,e.rm-7.5,e.rm-5,e.rm-2.5,e.rm],'var(--c-good)')}
+            <div class="row" style="justify-content:space-between;margin-top:4px">
+              <span class="mono muted" style="font-size:10px">7 sem atrás</span>
+              <span class="num" style="font-size:10px;color:var(--c-good)">${e.rm} kg hoy</span>
+            </div>
+          </div>`:''}
+        `).join('')}
+        <div style="height:1px"></div>
       </div>` :
 
     `<div class="card">
@@ -612,6 +767,17 @@ progreso: () => `
         <div class="card tinted" style="padding:12px"><div class="eyebrow">Distancia</div><div class="num" style="font-size:24px;margin-top:3px">487<span class="mono muted" style="font-size:10px;margin-left:2px">km</span></div></div>
         <div class="card tinted" style="padding:12px"><div class="eyebrow">Tiempo Z2</div><div class="num" style="font-size:24px;margin-top:3px">68<span class="mono muted" style="font-size:10px;margin-left:2px">%</span></div></div>
         <div class="card tinted" style="padding:12px"><div class="eyebrow">FC media</div><div class="num" style="font-size:24px;margin-top:3px">138<span class="mono muted" style="font-size:10px;margin-left:2px">bpm</span></div></div>
+      </div>
+      <div style="margin-top:14px">
+        <div class="row" style="justify-content:space-between;margin-bottom:8px">
+          <div class="eyebrow">TSS semanal</div>
+          <span class="mono muted" style="font-size:10px">Últimas 6 semanas</span>
+        </div>
+        ${sparkline(TSS_WEEKS,'var(--c-accent)')}
+        <div class="row" style="justify-content:space-between;margin-top:4px">
+          <span class="mono muted" style="font-size:10px">sem −5</span>
+          <span class="num" style="font-size:10px;color:var(--c-accent)">${TSS_WEEKS[TSS_WEEKS.length-1]} TSS esta sem</span>
+        </div>
       </div>
     </div>`}
 
@@ -626,7 +792,8 @@ progreso: () => `
       </div>
     </div>
 
-  </div></div>`,
+  </div></div>`;
+},
 
 coach: () => `
   <div class="hdr">
@@ -652,7 +819,7 @@ coach: () => `
     </div>
   </div>
   <div style="display:flex;gap:7px;overflow-x:auto;padding:7px 20px 7px;scrollbar-width:none">
-    ${['¿Cambio el entreno hoy?','¿Qué como antes de la salida?','Me siento cargado','No tengo espinacas','¿Por qué tanto volumen?'].map(s=>`<button class="chip" onclick="sendChat('${s.replace(/'/g,"&#39;")}')">${s}</button>`).join('')}
+    ${['¿Cómo va mi HRV?','¿Qué como antes de la salida?','Cuéntame el TSS','¿Qué tal Garabitas?','¿Cambio el entreno?'].map(s=>`<button class="chip" onclick="sendChat('${s.replace(/'/g,"&#39;")}')">${s}</button>`).join('')}
   </div>
   <div style="padding:7px 16px 90px;display:flex;gap:8px;align-items:center;background:color-mix(in oklab,var(--c-bg-2) 88%,transparent);backdrop-filter:blur(20px)">
     <input class="input" id="chat-in" placeholder="Pregunta al coach…" onkeydown="if(event.key==='Enter'&&this.value.trim())sendChat(this.value)">
@@ -661,27 +828,129 @@ coach: () => `
 
 };
 
-// ── Sheet: post-workout summary ────────────────────────────
-const SHEET_SUMMARY = () => `
-  <div class="sheet-bd" onclick="S.sheet=null;render()"></div>
-  <div class="sheet">
+// ── Sheet: Exercise ────────────────────────────────────────
+const SHEET_EXERCISE = () => {
+  const ex = EXERCISES[S.exerciseIdx];
+  const series = S.seriesState[S.exerciseIdx];
+  const done = series.filter(s=>s.done).length;
+  return `
+  <div class="sheet-bd" onclick="closeExercise()"></div>
+  <div class="sheet" style="max-height:92dvh;overflow-y:auto;padding-bottom:40px">
     <div class="handle"></div>
+
     <div class="row" style="justify-content:space-between;margin-bottom:14px">
-      <div><div class="eyebrow">VIE 9 · 18:42 · Strava</div><div class="title-md" style="margin-top:4px">Garabitas · vuelta larga</div></div>
-      <button onclick="S.sheet=null;render()" style="color:var(--c-text-muted)">${ico('chevron',16)}</button>
+      <div>
+        <div class="eyebrow">${ex.sets} · ${ex.rest}</div>
+        <div class="title-md" style="margin-top:4px">${ex.name}</div>
+      </div>
+      <button onclick="closeExercise()" style="color:var(--c-text-muted)">${ico('back',16)}</button>
     </div>
-    <div class="g2" style="gap:8px;margin-bottom:14px">
-      <div class="card tinted" style="padding:11px"><div class="eyebrow">Tiempo</div><div class="num" style="font-size:22px;margin-top:3px">1h 32m</div></div>
-      <div class="card tinted" style="padding:11px"><div class="eyebrow">Distancia</div><div class="num" style="font-size:22px;margin-top:3px">42.8<span class="mono muted" style="font-size:10px;margin-left:2px">km</span></div></div>
-      <div class="card tinted" style="padding:11px"><div class="eyebrow">TSS</div><div class="num" style="font-size:22px;margin-top:3px;color:var(--c-z2)">84</div></div>
-      <div class="card tinted" style="padding:11px"><div class="eyebrow">NP</div><div class="num" style="font-size:22px;margin-top:3px">178<span class="mono muted" style="font-size:10px;margin-left:2px">w</span></div></div>
+
+    ${S.exerciseVideo
+      ? `<iframe class="yt-iframe" src="https://www.youtube.com/embed/${ex.ytId}?autoplay=1" allow="autoplay;encrypted-media" allowfullscreen></iframe>`
+      : `<div class="yt-wrap" onclick="loadVideo(${S.exerciseIdx})">
+          <img src="https://img.youtube.com/vi/${ex.ytId}/hqdefault.jpg" alt="${ex.name}">
+          <div class="yt-play">
+            <div class="yt-play-btn">
+              <svg width="20" height="20" viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21" fill="white"/></svg>
+            </div>
+          </div>
+        </div>`
+    }
+
+    <div style="margin-top:12px;padding:11px 13px;background:var(--c-accent-soft);border-radius:var(--r-md)">
+      <div class="eyebrow" style="margin-bottom:5px">Tip técnico</div>
+      <div style="font-size:13.5px;line-height:1.55">${ex.tip}</div>
     </div>
-    <div style="margin-bottom:14px">${zonespec([8,71,16,4,1],2)}</div>
-    <div class="card" style="background:var(--c-accent-soft);border-color:transparent">
-      <div class="row" style="gap:7px;margin-bottom:6px">${ico('sparkle',13)}<div class="eyebrow">Análisis del coach</div></div>
-      <div style="font-size:13.5px;line-height:1.55">Sesión muy bien ejecutada. <strong>71% en Z2</strong>, justo el objetivo. Nutrición reajustada: +180g carbos para mañana.</div>
+
+    <div style="margin-top:12px;display:flex;flex-direction:column;gap:9px">
+      ${ex.cues.map((c,i)=>`
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="min-width:22px;height:22px;border-radius:50%;background:var(--c-surface-3);display:flex;align-items:center;justify-content:center;font-family:var(--f-m);font-size:10px;color:var(--c-text-muted);flex-shrink:0;margin-top:1px">${i+1}</div>
+          <div style="font-size:13.5px;line-height:1.5;padding-top:2px">${c}</div>
+        </div>`).join('')}
     </div>
+
+    <div class="divider"></div>
+
+    <div class="row" style="justify-content:space-between;margin-bottom:10px">
+      <h2>Series</h2>
+      <span class="mono muted" style="font-size:11px">${done}/${series.length} completadas</span>
+    </div>
+
+    <div class="series-hdr">
+      <div class="serie-num">#</div>
+      <div class="mono muted" style="font-size:10px;text-align:center;letter-spacing:.06em">KG</div>
+      <div class="mono muted" style="font-size:10px;text-align:center;letter-spacing:.06em">REPS</div>
+      <div></div>
+    </div>
+
+    ${series.map((s,i)=>`
+      <div class="serie-row" style="${s.done?'opacity:.55':''}">
+        <div class="serie-num">${i+1}</div>
+        <input class="serie-input" type="number" value="${s.kg}" min="0" step="2.5"
+          oninput="updateSerieVal(${S.exerciseIdx},${i},'kg',this.value)">
+        <input class="serie-input" type="number" value="${s.reps}" min="1"
+          oninput="updateSerieVal(${S.exerciseIdx},${i},'reps',this.value)">
+        <button class="check-btn${s.done?' done':''}" onclick="toggleSerie(${S.exerciseIdx},${i})">
+          ${s.done?ico('check',13):''}
+        </button>
+      </div>`).join('')}
+
+    <button onclick="addSerie(${S.exerciseIdx})" class="btn btn-ghost btn-block" style="margin-top:12px">
+      + Añadir serie
+    </button>
   </div>`;
+};
+
+// ── Sheet: Post-workout summary ────────────────────────────
+const SHEET_SUMMARY = () => {
+  const SENS = ['Fuerte','Bien en Z2','Cansado al final','Piernas pesadas','Buena cadencia','Sin energía'];
+  return `
+  <div class="sheet-bd" onclick="S.sheet=null;render()"></div>
+  <div class="sheet" style="max-height:90dvh;overflow-y:auto;padding-bottom:40px">
+    <div class="handle"></div>
+    <div class="row" style="justify-content:space-between;margin-bottom:16px">
+      <div>
+        <div class="eyebrow">VIE 9 · 18:42 · Strava</div>
+        <div class="title-md" style="margin-top:4px">Garabitas · vuelta larga</div>
+      </div>
+      <button onclick="S.sheet=null;render()" style="color:var(--c-text-muted)">${ico('back',16)}</button>
+    </div>
+
+    <div class="g3" style="margin-bottom:14px">
+      <div class="card tinted" style="padding:11px"><div class="eyebrow">Tiempo</div><div class="num" style="font-size:17px;margin-top:3px">1h 32m</div></div>
+      <div class="card tinted" style="padding:11px"><div class="eyebrow">Distancia</div><div class="num" style="font-size:17px;margin-top:3px">42.8<span class="mono muted" style="font-size:9px;margin-left:1px">km</span></div></div>
+      <div class="card tinted" style="padding:11px"><div class="eyebrow">TSS</div><div class="num" style="font-size:17px;margin-top:3px;color:var(--c-z2)">84</div></div>
+      <div class="card tinted" style="padding:11px"><div class="eyebrow">Pot. norm.</div><div class="num" style="font-size:17px;margin-top:3px">178<span class="mono muted" style="font-size:9px;margin-left:1px">w</span></div></div>
+      <div class="card tinted" style="padding:11px"><div class="eyebrow">FC media</div><div class="num" style="font-size:17px;margin-top:3px">138<span class="mono muted" style="font-size:9px;margin-left:1px">bpm</span></div></div>
+      <div class="card tinted" style="padding:11px"><div class="eyebrow">Kcal</div><div class="num" style="font-size:17px;margin-top:3px">1.182</div></div>
+    </div>
+
+    <div class="eyebrow" style="margin-bottom:10px">Distribución de zonas</div>
+    ${zonespecAnimated([8,71,16,4,1],2)}
+
+    <div class="divider"></div>
+
+    <div class="card" style="background:var(--c-accent-soft);border-color:transparent;margin-bottom:16px">
+      <div class="row" style="gap:7px;margin-bottom:7px">${ico('sparkle',13)}<div class="eyebrow">Análisis del coach</div></div>
+      <div style="font-size:13.5px;line-height:1.55">Sesión muy bien ejecutada. <strong>71% en Z2</strong>, justo el objetivo. Con TSS 84 y HRV estable en 62ms puedes hacer el tren superior de esta tarde sin recorte. Nutrición reajustada: +180g carbos para mañana.</div>
+    </div>
+
+    <div class="eyebrow" style="margin-bottom:10px">¿Cómo te has sentido?</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${SENS.map(s=>`
+        <button class="chip${S.sensaciones.includes(s)?' sel':''}" onclick="toggleSensacion('${s}')">
+          ${s}
+        </button>`).join('')}
+    </div>
+
+    ${S.sensaciones.length>0?`
+    <button class="btn btn-primary btn-block" style="margin-top:16px" onclick="S.sheet=null;render()">
+      ${ico('check',13)} Guardar — ${S.sensaciones.join(', ')}
+    </button>`:''}
+  </div>`;
+};
 
 // ── Actions ────────────────────────────────────────────────
 function go(name) {
@@ -694,8 +963,54 @@ function go(name) {
 }
 
 function toggleTheme() {
-  const html = document.documentElement;
-  html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme =
+    document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+}
+
+function openExercise(idx) {
+  S.exerciseIdx = idx;
+  S.exerciseVideo = false;
+  S.sheet = 'exercise';
+  render();
+}
+
+function closeExercise() {
+  S.sheet = null;
+  S.exerciseIdx = null;
+  S.exerciseVideo = false;
+  render();
+}
+
+function loadVideo(exIdx) {
+  S.exerciseVideo = true;
+  renderSheet();
+}
+
+function toggleSerie(exIdx, serieIdx) {
+  S.seriesState[exIdx][serieIdx].done = !S.seriesState[exIdx][serieIdx].done;
+  renderSheet();
+}
+
+function addSerie(exIdx) {
+  const last = S.seriesState[exIdx].slice(-1)[0];
+  S.seriesState[exIdx].push({kg:last.kg, reps:last.reps, done:false});
+  renderSheet();
+}
+
+function updateSerieVal(exIdx, serieIdx, field, value) {
+  const n = parseFloat(value);
+  if(!isNaN(n)) S.seriesState[exIdx][serieIdx][field] = n;
+}
+
+function toggleSensacion(s) {
+  if(S.sensaciones.includes(s)) S.sensaciones = S.sensaciones.filter(x=>x!==s);
+  else S.sensaciones.push(s);
+  renderSheet();
+}
+
+function progresoEx(name) {
+  S.progresoExercise = S.progresoExercise === name ? null : name;
+  render();
 }
 
 function sendChat(text) {
@@ -703,25 +1018,47 @@ function sendChat(text) {
   const val = (text || (inp && inp.value) || '').trim();
   if(!val) return;
   if(inp) inp.value = '';
-  S.chatMsgs.push({from:'user', text: val});
+  S.chatMsgs.push({from:'user', text:val});
   S.chatThinking = true;
   render();
   setTimeout(() => {
     const t = val.toLowerCase();
     let reply = 'Lo tengo. Reviso tu plan y te doy una propuesta concreta.';
-    if(t.includes('cargado')||t.includes('cansado')||t.includes('cambio'))
-      reply = 'Con ese feedback bajo la intensidad: en lugar de Z2 90′, hago 60′ Z1–Z2 suave. Pasa la cena a más carbos para recuperar.';
+
+    if(t.includes('garabitas'))
+      reply = 'La vuelta de Garabitas de ayer fue perfecta: 71% en Z2, TSS 84, FC media 138 bpm y Pot. norm. 178w. Todo dentro del objetivo. Para la de hoy mantén el mismo ritmo — cadencia 87–92 rpm y FC entre 130 y 145.';
+    else if(t.includes('hrv'))
+      reply = 'Tu HRV hoy es 62ms, 4ms por encima de tu media de las últimas 4 semanas. Eso, junto con los Recursos al 94%, confirma que estás en plena forma. Puedes entrenar con plena intensidad en el doble de hoy.';
+    else if(t.includes('tss'))
+      reply = 'Llevas 312 TSS esta semana en 3 de 4 sesiones. La salida de hoy añadirá ~84 TSS más, cerrando en ~396, muy cerca del objetivo de 400. Está en la zona ideal para seguir cargando sin riesgo de sobreentrenar.';
+    else if(t.includes('z2'))
+      reply = 'Para mantenerte en Z2 en Garabitas: FC entre 130 y 145 bpm, ritmo conversacional. Si subes la Cuesta de las Perdices deja que la FC suba puntualmente, pero no te quedes ahí más de 2 min. Cadencia ≥85 rpm te ayuda a no pisar el acelerador.';
+    else if(t.includes('sueño')||t.includes('sueno')||t.includes('dormi'))
+      reply = 'Anoche dormiste 7h 20m con 1h 40m de sueño profundo — mejor que tu media de 6h 50m. Eso explica el HRV de 62ms y los recursos al 94%. Sigue con ese horario esta semana, estás respondiendo muy bien.';
+    else if(t.includes('peso'))
+      reply = 'Estás en 76,2 kg, bajando 1,2 kg en 4 semanas a ritmo controlado. Con el déficit actual y las 2.640 kcal de hoy (doble sesión), el modelo apunta a llegar a 75 kg en 3–4 semanas sin perder músculo. Músculo +0,4 kg en el período — excelente composición.';
+    else if(t.includes('cargado')||t.includes('cansado')||t.includes('cambio'))
+      reply = 'Con ese feedback bajo la intensidad: en lugar de Z2 90′, hago 60′ Z1–Z2 suave. Pasa la cena a más carbos para recuperar. Tu HRV está en 62ms — mañana deberías estar fino si descansas bien esta noche.';
     else if(t.includes('como')||t.includes('antes')||t.includes('salida'))
-      reply = 'Para una salida larga: 60–90 min antes, porridge con plátano y miel. Durante, 1–2 geles cada 45′ y bebida con sales.';
+      reply = 'Para la salida de 90 min: 60–90 min antes, porridge con plátano y miel (~420 kcal, 68g carbos). Durante la salida, 1–2 geles cada 45 min y bebida isotónica con sodio. Con TSS acumulado de 312 esta semana, no salgas en ayunas.';
     else if(t.includes('espinacas'))
-      reply = 'Sin problema. Las cambio por kale o canónigos. Si no tienes hoja verde, brócoli o judías verdes ajustan los micros igual.';
+      reply = 'Sin problema. Las cambio por kale o canónigos en la receta de hoy. Si no tienes hoja verde, brócoli o judías verdes ajustan los micros igual de bien.';
     else if(t.includes('volumen'))
-      reply = 'Esta semana es de carga. Tu HRV ha estado estable y el peso baja lento — buen momento para subir TSS. La próxima toca descarga.';
+      reply = 'Esta semana es de carga máxima (objetivo 400 TSS). Tu HRV lleva 5 días estable por encima de 60ms y el peso baja lento — buena señal para seguir subiendo. La próxima semana toca descarga: −30% de volumen.';
+
     S.chatThinking = false;
-    S.chatMsgs.push({from:'ai', text: reply});
+    S.chatMsgs.push({from:'ai', text:reply});
     render();
     setTimeout(()=>{const s=document.getElementById('chat-scroll');if(s)s.scrollTop=s.scrollHeight;},50);
   }, 950);
+}
+
+// ── Render ─────────────────────────────────────────────────
+function renderSheet() {
+  const overlay = document.getElementById('sheet-overlay');
+  if(!overlay) return;
+  if(S.sheet==='summary') overlay.innerHTML = SHEET_SUMMARY();
+  else if(S.sheet==='exercise') overlay.innerHTML = SHEET_EXERCISE();
 }
 
 function render() {
@@ -729,20 +1066,16 @@ function render() {
   const fn = SCREENS[S.screen];
   if(fn) scr.innerHTML = fn();
 
-  // Sheet overlay
   const existing = document.getElementById('sheet-overlay');
-  if(S.sheet==='summary') {
-    if(!existing) {
-      const div = document.createElement('div');
-      div.id = 'sheet-overlay';
-      div.innerHTML = SHEET_SUMMARY();
-      document.getElementById('app').appendChild(div);
-    }
+  if(S.sheet==='summary' || S.sheet==='exercise') {
+    const div = existing || document.createElement('div');
+    div.id = 'sheet-overlay';
+    div.innerHTML = S.sheet==='summary' ? SHEET_SUMMARY() : SHEET_EXERCISE();
+    if(!existing) document.getElementById('app').appendChild(div);
   } else {
     if(existing) existing.remove();
   }
 
-  // Scroll chat to bottom
   if(S.screen==='coach') {
     setTimeout(()=>{const s=document.getElementById('chat-scroll');if(s)s.scrollTop=s.scrollHeight;},30);
   }
@@ -751,15 +1084,18 @@ function render() {
 // ── Clock ──────────────────────────────────────────────────
 function updateClock() {
   const d = new Date();
-  const h = d.getHours().toString().padStart(2,'0');
-  const m = d.getMinutes().toString().padStart(2,'0');
   const el = document.getElementById('clock');
-  if(el) el.textContent = `${h}:${m}`;
+  if(el) el.textContent = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 updateClock();
 setInterval(updateClock, 10000);
 
 render();
+
+// ── Service Worker ─────────────────────────────────────────
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
 </script>
 </body>
 </html>
