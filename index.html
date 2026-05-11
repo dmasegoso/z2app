@@ -216,8 +216,9 @@ h2{font-family:var(--f-d);font-weight:600;font-size:18px;letter-spacing:-.015em;
 </head>
 <body>
 <div class="frame" id="app">
-  <div class="status" id="statusbar">
+  <div class="status" id="statusbar" style="position:relative">
     <span id="clock">9:41</span>
+    <span id="sync-dot" style="position:absolute;left:50%;transform:translateX(-50%);width:5px;height:5px;border-radius:50%;background:var(--c-good);opacity:0;transition:opacity .3s;animation:pulse 1s infinite"></span>
     <div class="icons">
       <svg width="16" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="3" width="3" height="8" rx="1"/><rect x="4.5" y="2" width="3" height="9" rx="1"/><rect x="9" y="0" width="3" height="11" rx="1"/><rect x="13.5" y="0" width="2.5" height="11" rx="1" opacity=".35"/></svg>
       <svg width="14" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg>
@@ -316,9 +317,10 @@ const TKNS = {
   },
 };
 const DCACHE = {
-  get: (k) => { try { const v = JSON.parse(localStorage.getItem('z2_dc_' + k)); return (v && Date.now() - v.ts < 3600000) ? v.d : null; } catch(e) { return null; } },
+  TTL: { strava: 5 * 60 * 1000, withings: 60 * 60 * 1000 }, // Strava 5 min, Withings 1 h
+  get: (k) => { try { const v = JSON.parse(localStorage.getItem('z2_dc_' + k)); return (v && Date.now() - v.ts < (DCACHE.TTL[k] ?? 3600000)) ? v.d : null; } catch(e) { return null; } },
   set: (k, d) => localStorage.setItem('z2_dc_' + k, JSON.stringify({ts: Date.now(), d})),
-  clear: () => Object.keys(localStorage).filter(k => k.startsWith('z2_dc_')).forEach(k => localStorage.removeItem(k)),
+  clear: (k) => k ? localStorage.removeItem('z2_dc_' + k) : Object.keys(localStorage).filter(k => k.startsWith('z2_dc_')).forEach(k => localStorage.removeItem(k)),
 };
 
 // ── Strava ─────────────────────────────────────────────────
@@ -1455,6 +1457,34 @@ async function loadLiveData() {
   }
   await Promise.all(jobs);
 }
+
+// ── Background sync ────────────────────────────────────────
+let _syncing = false;
+
+async function silentRefresh() {
+  if (_syncing || !stravaConnected()) return;
+  _syncing = true;
+  showSyncDot(true);
+  DCACHE.clear('strava');
+  try { await loadLiveData(); render(); } catch(e) {}
+  _syncing = false;
+  showSyncDot(false);
+}
+
+function showSyncDot(on) {
+  const el = document.getElementById('sync-dot');
+  if (el) el.style.opacity = on ? '1' : '0';
+}
+
+// Refresca al volver a la app (minimize → reabrir)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') silentRefresh();
+});
+
+// Polling cada 5 min mientras la app está en primer plano
+setInterval(() => {
+  if (document.visibilityState === 'visible') silentRefresh();
+}, 5 * 60 * 1000);
 
 // ── App init (handles OAuth callback) ─────────────────────
 async function initApp() {
