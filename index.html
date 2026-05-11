@@ -327,7 +327,9 @@ const STRAVA_TOKEN = 'https://www.strava.com/oauth/token';
 const STRAVA_API   = 'https://www.strava.com/api/v3';
 
 const stravaConnected = () => !!TKNS.get().strava_access;
-const redirectUri = () => location.origin + location.pathname;
+// URI fija — debe coincidir EXACTAMENTE con lo registrado en Strava / Withings
+const REDIRECT_URI = 'https://dmasegoso.github.io/z2app/';
+const redirectUri = () => REDIRECT_URI;
 
 function stravaConnect() {
   const id = document.getElementById('s-id')?.value.trim() || CFG.get().strava_id;
@@ -1217,7 +1219,8 @@ const SHEET_AJUSTES = () => {
     <div class="card" style="margin-bottom:16px">
       <div style="font-size:12.5px;color:var(--c-text-muted);margin-bottom:12px;line-height:1.55">
         1. Ve a <strong>strava.com/settings/api</strong> y crea una app.<br>
-        2. En "Authorization Callback Domain" pon: <span style="font-family:var(--f-m);font-size:11px;color:var(--c-accent)">${location.hostname}</span>
+        2. En <strong>"Authorization Callback Domain"</strong> pon:<br>
+        <span style="font-family:var(--f-m);font-size:11px;color:var(--c-accent);word-break:break-all">dmasegoso.github.io</span>
       </div>
       <div class="col" style="gap:9px">
         <div>
