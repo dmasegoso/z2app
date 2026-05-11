@@ -302,6 +302,55 @@ const EXERCISES = [
   },
 ];
 
+// ── Date utilities ─────────────────────────────────────────
+const DAY_ES  = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+const MON_ES  = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const MON_FULL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function isoWeek(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  return Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(),0,1))) / 86400000) + 1) / 7);
+}
+
+function mondayOf(date) {
+  const d = new Date(date);
+  const dow = d.getDay(); // 0=Sun
+  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+function fmtDate(date) {
+  return `${DAY_ES[date.getDay()]} · ${date.getDate()} ${MON_ES[date.getMonth()]}`;
+}
+
+function weekDays() {
+  const today = new Date();
+  const mon = mondayOf(today);
+  return Array.from({length:7}, (_,i) => {
+    const d = new Date(mon);
+    d.setDate(mon.getDate() + i);
+    return {
+      n: DAY_ES[d.getDay()],
+      d: d.getDate(),
+      today: d.toDateString() === today.toDateString(),
+      date: d,
+    };
+  });
+}
+
+function weekLabel() {
+  const today = new Date();
+  const mon = mondayOf(today);
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  const wn = isoWeek(today);
+  const range = mon.getMonth() === sun.getMonth()
+    ? `${mon.getDate()}–${sun.getDate()} ${MON_ES[mon.getMonth()]}`
+    : `${mon.getDate()} ${MON_ES[mon.getMonth()]} – ${sun.getDate()} ${MON_ES[sun.getMonth()]}`;
+  return `Semana ${wn} · ${range}`;
+}
+
 // ── Storage helpers ────────────────────────────────────────
 const CFG = {
   get: () => { try { return JSON.parse(localStorage.getItem('z2_cfg') || '{}'); } catch(e) { return {}; } },
@@ -661,7 +710,7 @@ home: () => {
   return `
   <div class="hdr">
     <div>
-      <div class="hdr-meta">Sáb · 10 May</div>
+      <div class="hdr-meta">${fmtDate(new Date())}</div>
       <h1>Hola, <span style="color:var(--c-accent)">Dani</span>.</h1>
       <div class="muted" style="margin-top:5px;font-size:13px;line-height:1.4">Doble sesión hoy. Recuperación excelente.</div>
     </div>
@@ -818,13 +867,11 @@ home: () => {
 },
 
 plan: () => {
-  const days=[
-    {n:'LUN',d:5,b:true,f:true},{n:'MAR',d:6,b:true},{n:'MIÉ',d:7},
-    {n:'JUE',d:8,b:true,f:true},{n:'VIE',d:9,b:true,done:true},
-    {n:'SÁB',d:10,b:true,f:true,today:true},{n:'DOM',d:11},
-  ];
+  // Patrón de entrenos fijo: LUN bici+fuerza, MAR bici, JUE bici+fuerza, VIE bici, SÁB bici+fuerza
+  const pattern = [{b:true,f:true},{b:true},{},{b:true,f:true},{b:true},{b:true,f:true},{}];
+  const days = weekDays().map((d,i) => ({...d, ...pattern[i]}));
   return `
-  <div class="hdr"><div><div class="hdr-meta">Semana 19 · 5–11 May</div><h1>Plan</h1></div></div>
+  <div class="hdr"><div><div class="hdr-meta">${weekLabel()}</div><h1>Plan</h1></div></div>
   <div class="scroll"><div class="pad">
 
     <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none;-webkit-overflow-scrolling:touch">
@@ -840,7 +887,7 @@ plan: () => {
         </div>`).join('')}
     </div>
 
-    <div class="sec" style="margin-top:20px"><h2>Bici · Z2</h2><span class="pill good">${ico('check',11)}Garmin</span></div>
+    <div class="sec" style="margin-top:20px"><h2>Bici · Z2</h2><span class="pill">${ico('bike',11)}90 min</span></div>
     <div class="card">
       <div class="title-md">Rodaje aeróbico largo</div>
       <div class="muted" style="font-size:12.5px;margin-top:5px;line-height:1.5">Esfuerzo conversacional. Cadencia 85–95 rpm. Garabitas o carretera de Extremadura.</div>
@@ -849,9 +896,11 @@ plan: () => {
         <div class="card tinted" style="padding:12px"><div class="eyebrow">Duración</div><div class="num" style="font-size:22px;margin-top:4px">90<span class="mono muted" style="font-size:11px;margin-left:2px">min</span></div></div>
         <div class="card tinted" style="padding:12px"><div class="eyebrow">FC objetivo</div><div class="num" style="font-size:22px;margin-top:4px">130<span class="mono muted" style="font-size:10px">–</span>145</div></div>
       </div>
-      <div class="row" style="gap:7px;margin-top:12px">
-        <button class="btn btn-primary" style="flex:1">${ico('check',13)} Enviado a Garmin</button>
-        <button class="btn btn-ghost btn-sm" style="width:44px;padding:0">${ico('settings',15)}</button>
+      <div class="card" style="margin-top:10px;background:var(--c-surface-2);border-color:transparent;padding:11px 14px">
+        <div class="row" style="gap:8px">
+          ${ico('activity',13)}
+          <div style="font-size:13px;line-height:1.5">Garmin no tiene API pública — ejecuta el entreno con tu Garmin y sube la actividad a <strong>Strava</strong> para verla aquí.</div>
+        </div>
       </div>
     </div>
 
@@ -894,7 +943,7 @@ nutricion: () => {
     {tag:'CENA · 20:30',name:'Pollo al horno con boniato',ings:'180g pollo · 200g boniato · brócoli · romero · AOVE',kcal:580,p:52,c:48,f:14,faded:true,img:RECIPE_IMGS[3]},
   ];
   return `
-  <div class="hdr"><div><div class="hdr-meta">Sáb · doble sesión</div><h1>Nutrición</h1></div></div>
+  <div class="hdr"><div><div class="hdr-meta">${fmtDate(new Date())} · doble sesión</div><h1>Nutrición</h1></div></div>
   <div class="scroll"><div class="pad">
 
     <div class="card">
