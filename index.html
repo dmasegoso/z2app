@@ -429,21 +429,34 @@ async function intervalsTest() {
   const cfg = CFG.get();
   S.ajErr = null; S.ajMsg = null;
   render(); renderSheet();
-  try {
-    const auth = btoa(`API:${cfg.intervals_key.trim()}`);
-    const resp = await fetch(`${intervalsApiBase()}/athlete/${cfg.intervals_athlete_id}`, {
-      headers: { 'Authorization': `Basic ${auth}` }
-    });
-    const body = await resp.text();
-    if (resp.ok) {
-      const d = JSON.parse(body);
-      S.ajMsg = `✓ Conectado — ${d.name || d.email || 'atleta ' + cfg.intervals_athlete_id}`;
-    } else {
-      S.ajErr = `GET /athlete → ${resp.status}: ${body}`;
-    }
-  } catch(e) {
-    S.ajErr = `Error de red: ${e.message}`;
+  const key = cfg.intervals_key.trim();
+  const rawId = cfg.intervals_athlete_id.trim();
+  // Prueba las combinaciones: con/sin 'i', API/api
+  const combos = [
+    { user: 'API', id: rawId },
+    { user: 'api', id: rawId },
+    { user: 'API', id: rawId.replace(/^i/i, '') },
+    { user: 'api', id: rawId.replace(/^i/i, '') },
+  ];
+  const base = intervalsApiBase();
+  for (const c of combos) {
+    try {
+      const auth = btoa(`${c.user}:${key}`);
+      const resp = await fetch(`${base}/athlete/${c.id}`, {
+        headers: { 'Authorization': `Basic ${auth}` }
+      });
+      const body = await resp.text();
+      if (resp.ok) {
+        const d = JSON.parse(body);
+        S.ajMsg = `✓ OK con user="${c.user}" id="${c.id}" — ${d.name || d.email || 'conectado'}`;
+        // Guardar el formato correcto
+        CFG.set({ intervals_athlete_id: c.id });
+        render(); renderSheet();
+        return;
+      }
+    } catch(e) {}
   }
+  S.ajErr = `403 en todas las combinaciones. Verifica la API key en intervals.icu → Settings.`;
   render(); renderSheet();
 }
 
